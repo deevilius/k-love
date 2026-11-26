@@ -4,6 +4,7 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 🎵 Beim Start spielt K-Love jetzt einen kurzen, leisen Lofi-Song. Stummschalten über den 🔊-Knopf oben oder unter Einstellungen → Startmusik.
 - 🧪 Erste Beta! Über Einstellungen → „Feedback senden“ oder „Fehler melden“ erreichst du uns direkt.
 - ⚙️ Aufgeräumte Einstellungen: nur noch Profil, Poster und App.
 - 💾 Dein Profil wird jetzt wenige Sekunden nach jeder Änderung gespeichert.
