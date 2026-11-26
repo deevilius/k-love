@@ -79,6 +79,8 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       sandbox: true,
+      // Startmusik ohne vorherigen Klick abspielen
+      autoplayPolicy: 'no-user-gesture-required',
     },
   })
   win.removeMenu()

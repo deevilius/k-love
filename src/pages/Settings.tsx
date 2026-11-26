@@ -5,6 +5,7 @@ import { bestMatch, completeCandidate, searchFreePosters } from '../lib/freePost
 import { BackupSection } from '../components/BackupSection'
 import { openFeedback } from '../lib/diagnostics'
 import { showUpdateDialog, useUpdateState } from '../components/UpdateDialog'
+import { playIntro, setIntroEnabled, stopIntro, useIntroEnabled, useIntroPlaying } from '../lib/lofi'
 
 const muted = 'text-sm text-stone-600 dark:text-rose-100/70'
 
@@ -20,6 +21,7 @@ export default function SettingsPage() {
       <h1 className="h-display text-2xl font-bold">Einstellungen</h1>
       <BackupSection />
       <PosterSection />
+      <MusicSection />
       <AppSection />
     </div>
   )
@@ -81,6 +83,28 @@ function AppSection() {
           🐞 Fehler melden
         </button>
       </div>
+    </section>
+  )
+}
+
+function MusicSection() {
+  const on = useIntroEnabled()
+  const playing = useIntroPlaying()
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="h-display text-lg font-bold">🎵 Startmusik</h2>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-pink-600"
+          checked={on}
+          onChange={(e) => setIntroEnabled(e.target.checked)}
+        />
+        Beim Start einen kurzen Lofi-Song spielen
+      </label>
+      <button className="btn-outline px-3 py-1 text-sm" onClick={() => (playing ? stopIntro() : playIntro())}>
+        {playing ? '⏹ Stoppen' : '▶ Probehören'}
+      </button>
     </section>
   )
 }
