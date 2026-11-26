@@ -4,7 +4,7 @@ Windows-App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit OST-Player 
 
 ## Installieren
 
-1. Auf der Seite **Releases** dieses Repos die neueste `K-Love-Setup-x.y.z.exe` herunterladen und starten.
+1. Auf **[deevilius.github.io/k-love](https://deevilius.github.io/k-love/)** auf „Für Windows herunterladen“ klicken (oder unter **Releases** die neueste `K-Love-Setup-x.y.z.exe` laden) und die Datei starten.
 2. Windows zeigt beim ersten Mal evtl. „Der Computer wurde durch Windows geschützt“ (die App ist nicht kostenpflichtig signiert): **Weitere Informationen → Trotzdem ausführen**.
 3. K-Love installiert sich ohne Admin-Rechte und legt eine Desktop-Verknüpfung an.
 
@@ -38,6 +38,10 @@ Releases entstehen **nur auf Knopfdruck**, nicht durch Pushes oder Tags.
 2. Auf GitHub: **Actions → „Release (Windows)“ → „Run workflow“**, Versionssprung wählen (`patch`, `minor` oder `major`).
 
 Die Action erhöht die Version, macht aus „Unveröffentlicht“ den Abschnitt der neuen Version, baut den Installer, committet und taggt `vX.Y.Z` und veröffentlicht das Release. Ist „Unveröffentlicht“ leer, bricht sie ab. Danach lokal `git pull`.
+
+## Download-Seite
+
+Die Landingpage liegt in `site/` (reines HTML, kein Build). Bei jedem Push auf `main`, der `site/` ändert, veröffentlicht die Action „Download-Seite (GitHub Pages)“ sie neu. Der Download-Button fragt die GitHub-API nach dem neuesten Release – nach einem neuen Release muss an der Seite also nichts geändert werden.
 
 ## Entwickeln
 

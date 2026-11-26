@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>K-Love 💗 – Meine K-Dramen</title>
+  <meta name="description" content="K-Love: Windows-App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit OST-Player, Postern, Statistiken und Excel-Import." />
+  <meta property="og:title" content="K-Love 💗 – Meine K-Dramen" />
+  <meta property="og:description" content="K-Dramen sammeln, bewerten und OSTs hören – kostenlos für Windows." />
+  <meta property="og:type" content="website" />
+  <meta name="color-scheme" content="light dark" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <style>
+    :root {
+      --bg: #fff1f2;
+      --text: #292524;
+      --muted: #78716c;
+      --card: rgb(255 255 255 / 0.8);
+      --border: #ffe4e6;
+      --accent: #db2777;
+      --accent-hover: #be185d;
+      --glow1: rgb(251 207 232 / 0.6);
+      --glow2: rgb(233 213 255 / 0.5);
+      --sans: 'Nunito Variable', 'Nunito', 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --display: 'Gowun Batang', Georgia, serif;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1a1220;
+        --text: #fff1f2;
+        --muted: #d6c4cc;
+        --card: rgb(255 255 255 / 0.05);
+        --border: rgb(255 255 255 / 0.1);
+        --accent: #ec4899;
+        --accent-hover: #db2777;
+        --glow1: rgb(131 24 67 / 0.35);
+        --glow2: rgb(88 28 135 / 0.3);
+      }
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--sans);
+      color: var(--text);
+      background-color: var(--bg);
+      background-image:
+        radial-gradient(circle at 10% 0%, var(--glow1), transparent 40%),
+        radial-gradient(circle at 90% 10%, var(--glow2), transparent 35%);
+      background-attachment: fixed;
+      min-height: 100dvh;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+    }
+    main { max-width: 960px; margin: 0 auto; padding: 0 1.25rem; }
+    a { color: var(--accent); }
+    h1, h2 { font-family: var(--display); font-weight: 700; line-height: 1.2; }
+    h2 { font-size: 1.6rem; margin: 0 0 1rem; text-align: center; }
+    section { padding: 2.5rem 0; }
+
+    .hero { text-align: center; padding: 4.5rem 0 2.5rem; }
+    .hero img { width: 112px; height: 112px; filter: drop-shadow(0 12px 24px rgb(219 39 119 / 0.3)); }
+    .hero h1 { font-size: clamp(2.2rem, 6vw, 3.4rem); margin: 1rem 0 0.5rem; }
+    .hero p.lead { font-size: 1.15rem; color: var(--muted); max-width: 34rem; margin: 0 auto 2rem; }
+
+    .btn {
+      display: inline-flex; align-items: center; gap: 0.6rem;
+      padding: 0.95rem 1.9rem; border-radius: 999px;
+      background: var(--accent); color: #fff; text-decoration: none;
+      font-weight: 700; font-size: 1.1rem;
+      box-shadow: 0 8px 24px rgb(219 39 119 / 0.35);
+      transition: background 0.15s, transform 0.1s;
+    }
+    .btn:hover { background: var(--accent-hover); }
+    .btn:active { transform: scale(0.97); }
+    .btn svg { width: 22px; height: 22px; }
+    .meta { margin-top: 0.85rem; font-size: 0.9rem; color: var(--muted); min-height: 1.4em; }
+
+    .grid { display: grid; gap: 1rem; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: 1rem;
+      padding: 1.25rem 1.35rem; backdrop-filter: blur(8px);
+      box-shadow: 0 1px 2px rgb(0 0 0 / 0.04);
+    }
+    .card .emoji { font-size: 1.7rem; }
+    .card h3 { margin: 0.4rem 0 0.25rem; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.95rem; }
+
+    ol.steps { list-style: none; padding: 0; margin: 0; counter-reset: s; display: grid; gap: 0.75rem; }
+    ol.steps li { counter-increment: s; display: flex; gap: 1rem; align-items: flex-start; }
+    ol.steps li::before {
+      content: counter(s); flex: none; width: 2rem; height: 2rem; border-radius: 999px;
+      background: var(--accent); color: #fff; font-weight: 700;
+      display: grid; place-items: center;
+    }
+    .narrow { max-width: 640px; margin: 0 auto; }
+
+    footer { text-align: center; padding: 2rem 1rem 3rem; color: var(--muted); font-size: 0.9rem; }
+    footer a { margin: 0 0.5rem; }
+  </style>
+</head>
+<body>
+  <main>
+    <header class="hero">
+      <img src="icon.svg" alt="" />
+      <h1>K-Love 💗</h1>
+      <p class="lead">Deine K-Dramen an einem Ort: sammeln, bewerten, Fortschritt verfolgen und die schönsten OSTs hören.</p>
+      <a id="download" class="btn" href="https://github.com/deevilius/k-love/releases/latest">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
+        Für Windows herunterladen
+      </a>
+      <div id="meta" class="meta">Kostenlos · Windows 10/11</div>
+    </header>
+
+    <section>
+      <h2>Was K-Love kann</h2>
+      <div class="grid">
+        <div class="card"><div class="emoji">📚</div><h3>Sammeln &amp; bewerten</h3><p>Alle Dramen mit Status, Folgen-Fortschritt, Notizen und Bewertung nach Story, Schauspiel, Chemie, OST und Ende.</p></div>
+        <div class="card"><div class="emoji">🎵</div><h3>OST-Player</h3><p>Lieblingssongs zu jedem Drama – direkt über YouTube oder Spotify hören.</p></div>
+        <div class="card"><div class="emoji">🖼️</div><h3>Poster</h3><p>Schöne Cover für deine Sammlung, automatisch gesucht oder selbst gewählt.</p></div>
+        <div class="card"><div class="emoji">📊</div><h3>Statistiken</h3><p>Wie viele Folgen, welche Genres, welche Lieblingsschauspieler?</p></div>
+        <div class="card"><div class="emoji">📄</div><h3>Excel-Import &amp; -Export</h3><p>Bestehende Listen übernehmen oder alles als Tabelle mitnehmen.</p></div>
+        <div class="card"><div class="emoji">💾</div><h3>Automatische Sicherung</h3><p>Dein Profil liegt als Datei in deinen Dokumenten – auch auf OneDrive.</p></div>
+      </div>
+    </section>
+
+    <section class="narrow">
+      <h2>Installieren</h2>
+      <ol class="steps">
+        <li><div><strong>Herunterladen</strong> – oben auf den Button klicken und die <code>K-Love-Setup</code>-Datei starten.</div></li>
+        <li><div><strong>Windows-Hinweis bestätigen</strong> – erscheint „Der Computer wurde durch Windows geschützt“, auf <em>Weitere Informationen → Trotzdem ausführen</em> klicken. Die App ist nur nicht kostenpflichtig signiert.</div></li>
+        <li><div><strong>Loslegen</strong> – K-Love installiert sich ohne Admin-Rechte und legt eine Desktop-Verknüpfung an.</div></li>
+      </ol>
+    </section>
+
+    <section class="narrow">
+      <h2>Updates</h2>
+      <div class="card">
+        <p>K-Love sagt Bescheid, wenn es eine neue Version gibt, und zeigt dir vorher, was sich geändert hat. Du entscheidest: jetzt aktualisieren, später erinnern oder überspringen. Ohne deine Zustimmung wird nichts geladen oder installiert.</p>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <a href="https://github.com/deevilius/k-love">Quellcode</a> ·
+    <a href="https://github.com/deevilius/k-love/blob/main/CHANGELOG.md">Changelog</a> ·
+    <a href="https://github.com/deevilius/k-love/releases">Alle Versionen</a>
+  </footer>
+
+  <script>
+    (async () => {
+      const btn = document.getElementById('download');
+      const meta = document.getElementById('meta');
+      try {
+        const res = await fetch('https://api.github.com/repos/deevilius/k-love/releases/latest', {
+          headers: { Accept: 'application/vnd.github+json' },
+        });
+        if (!res.ok) return;
+        const rel = await res.json();
+        const exe = (rel.assets || []).find((a) => /^K-Love-Setup-.*\.exe$/.test(a.name));
+        if (!exe) return;
+        btn.href = exe.browser_download_url;
+        const version = (rel.tag_name || '').replace(/^v/, '');
+        const date = new Date(rel.published_at).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+        const mb = (exe.size / 1024 / 1024).toFixed(0);
+        meta.textContent = `Version ${version} · ${date} · ${mb} MB · kostenlos`;
+      } catch {
+        /* Fallback: Button zeigt auf die Releases-Seite */
+      }
+    })();
+  </script>
+</body>
+</html>
