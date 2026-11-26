@@ -1,0 +1,16 @@
+# Hält die GitHub Actions (inkl. SHA-Pins) und npm-Pakete aktuell.
+# Dependabot öffnet dafür Pull Requests – gemergt wird nur von Hand.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      minor-und-patch:
+        update-types: [minor, patch]
