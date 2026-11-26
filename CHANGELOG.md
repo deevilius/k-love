@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+## 0.2.0 – 2026-11-26
+
 - 💾 Dein Profil (alle Dramen, Songs und Einstellungen) wird automatisch in einer Datei gespeichert – standardmäßig unter Dokumente\K-Love, auf Wunsch z. B. in OneDrive.
 - 🛟 Sichereres Wiederherstellen: klarer Dialog, Zusammenführen überschreibt keine neueren Einträge mehr, und jede Wiederherstellung lässt sich rückgängig machen.
 - 🔔 Hinweis oben in der App, wenn die letzte Sicherung zu alt ist oder das Profil nicht gespeichert werden konnte.
