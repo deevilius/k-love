@@ -1,32 +1,43 @@
 # K-Love 💗 – Meine K-Dramen
 
-Kleine App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit OST-Player (YouTube/Spotify), Excel-Import/-Export, Postern und Statistiken. Läuft als **Windows-App mit Auto-Update** oder im Browser.
+Windows-App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit OST-Player (YouTube/Spotify), Excel-Import/-Export, Postern und Statistiken.
 
-## Installieren (Windows)
+## Installieren
 
 1. Auf der Seite **Releases** dieses Repos die neueste `K-Love-Setup-x.y.z.exe` herunterladen und starten.
 2. Windows zeigt beim ersten Mal evtl. „Der Computer wurde durch Windows geschützt“ (die App ist nicht kostenpflichtig signiert): **Weitere Informationen → Trotzdem ausführen**.
 3. K-Love installiert sich ohne Admin-Rechte und legt eine Desktop-Verknüpfung an.
 
-**Updates kommen automatisch:** Die App prüft beim Start (und alle 4 Stunden) auf eine neue Version, lädt sie im Hintergrund und fragt, ob sie neu starten soll. Manuell: Einstellungen → „Nach Updates suchen“.
+## Updates
 
-Die Daten liegen nur lokal unter `%APPDATA%\K-Love` und bleiben bei Updates erhalten. Trotzdem ab und zu **Einstellungen → Sicherung herunterladen**.
+Die App prüft beim Start und alle 4 Stunden, ob es eine neue Version gibt. Wenn ja, zeigt sie den **Changelog** und du entscheidest:
 
-### Daten aus der Browser-Version übernehmen
+- **Jetzt aktualisieren** – lädt das Update, speichert dein Profil und startet neu
+- **Morgen erinnern** / **In einer Woche**
+- **Diese Version überspringen**
 
-Im Browser: Einstellungen → Sicherung herunterladen. In der App: Einstellungen → Sicherung wiederherstellen.
+Ohne Zustimmung wird nichts geladen oder installiert. Unter Einstellungen → App findest du ein verfügbares Update jederzeit wieder.
+
+## Deine Daten
+
+Alle Dramen, Songs und Einstellungen stehen in **einer Profildatei**, die K-Love bei Änderungen automatisch aktualisiert:
+
+| Datei | Inhalt |
+|---|---|
+| `Dokumente\K-Love\k-love-profil.json` | aktuelles Profil |
+| `k-love-profil.vorher.json` | Stand davor |
+| `k-love-profil.vor-wiederherstellung.json` | Stand vor der letzten Wiederherstellung |
+
+Den Ordner kannst du in den Einstellungen ändern, z. B. auf OneDrive. Zum Sichern oder Umziehen einfach den Ordner kopieren – startet K-Love auf einem neuen Rechner ohne Daten, bietet es an, das Profil zu laden.
 
 ## Neue Version veröffentlichen
 
-```powershell
-npm version patch
-```
+Releases entstehen **nur auf Knopfdruck**, nicht durch Pushes oder Tags.
 
-```powershell
-git push --follow-tags
-```
+1. In `CHANGELOG.md` unter **„Unveröffentlicht“** eintragen, was sich geändert hat (dieser Text erscheint in der App vor dem Update), committen und pushen.
+2. Auf GitHub: **Actions → „Release (Windows)“ → „Run workflow“**, Versionssprung wählen (`patch`, `minor` oder `major`).
 
-GitHub Actions baut daraufhin die `.exe` und veröffentlicht sie als Release – die installierten Apps aktualisieren sich von selbst. (`minor` statt `patch` für größere Änderungen.)
+Die Action erhöht die Version, macht aus „Unveröffentlicht“ den Abschnitt der neuen Version, baut den Installer, committet und taggt `vX.Y.Z` und veröffentlicht das Release. Ist „Unveröffentlicht“ leer, bricht sie ab. Danach lokal `git pull`.
 
 ## Entwickeln
 
@@ -38,13 +49,17 @@ npm install
 npm run dev
 ```
 
-Web-Version unter <http://localhost:5173>. Weitere Befehle:
-
 | Befehl | Was passiert |
 |---|---|
-| `npm run electron` | Desktop-App lokal bauen und starten |
+| `npm run dev` | Vite-Dev-Server + Electron mit Hot-Reload |
+| `npm start` | App bauen und starten wie installiert |
 | `npm run dist` | Installer lokal bauen (`release/`), ohne Veröffentlichung |
-| `npm run build` | Web-Version (PWA) nach `dist/` |
+
+Update-Dialog testen (ohne echtes Release):
+
+```powershell
+$env:KLOVE_FAKE_UPDATE = '1'; npm run dev
+```
 
 ## Technik
 

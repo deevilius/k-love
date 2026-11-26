@@ -1,16 +1,30 @@
 name: Release (Windows)
 
+# Nur auf Knopfdruck: GitHub → Actions → „Release (Windows)“ → „Run workflow“.
+# Pushes und Tags lösen kein Release aus.
 on:
-  push:
-    tags: ['v*']
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Versionssprung (patch = Fehlerbehebung, minor = neue Funktionen, major = großer Umbau)'
+        type: choice
+        options: [patch, minor, major]
+        default: patch
 
 permissions:
   contents: write
 
+concurrency:
+  group: release
+  cancel-in-progress: false
+
 jobs:
   release:
     runs-on: windows-latest
+    if: github.ref == 'refs/heads/main'
+    defaults:
+      run:
+        shell: bash
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-node@v5
@@ -18,6 +32,35 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci
-      - run: npm run release
+
+      - name: Version erhöhen und Changelog übernehmen
+        id: version
+        run: |
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          VERSION=$(node -p "require('./package.json').version")
+          node scripts/changelog.mjs "$VERSION"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      # Erst bauen – schlägt das fehl, wird nichts committet oder veröffentlicht
+      - name: App bauen
+        run: |
+          npm run build
+          npx electron-builder --win --publish never
+
+      - name: Version committen und taggen
+        run: |
+          V=${{ steps.version.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json CHANGELOG.md
+          git commit -m "v$V"
+          git tag "v$V"
+          git push origin HEAD:main "v$V"
+
+      - name: Release veröffentlichen
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          V=${{ steps.version.outputs.version }}
+          gh release create "v$V" --title "K-Love $V" --notes-file release-notes.md \
+            "release/K-Love-Setup-$V.exe" "release/K-Love-Setup-$V.exe.blockmap" release/latest.yml

@@ -67,6 +67,14 @@ export interface Settings {
   tmdbLanguage: string
   ratingLabels: Record<RatingKey, string>
   lastBackupAt?: string
+  /** Prüfsumme der letzten automatischen Sicherung – unveränderte Daten werden nicht erneut gesichert */
+  lastAutoBackupHash?: string
+  /** Erinnerungsbanner bis zu diesem Zeitpunkt ausblenden */
+  backupReminderSnoozedUntil?: string
+  /** Update-Hinweis bis zu diesem Zeitpunkt nicht von selbst zeigen */
+  updateSnoozedUntil?: string
+  /** Diese Update-Version wurde übersprungen */
+  skippedUpdateVersion?: string
 }
 
 export const DEFAULT_SETTINGS: Settings = {

@@ -116,18 +116,86 @@ export async function exportBackup(): Promise<Backup> {
   }
 }
 
-export async function restoreBackup(b: Backup, mode: 'replace' | 'merge') {
-  if (b.app !== 'k-love' || !Array.isArray(b.dramas)) throw new Error('Keine gültige K-Love-Sicherung')
+/** Prüft eine eingelesene Datei und liefert die typisierte Sicherung oder wirft einen verständlichen Fehler. */
+export function validateBackup(raw: unknown): Backup {
+  const b = raw as Partial<Backup> | null
+  if (!b || typeof b !== 'object' || b.app !== 'k-love') throw new Error('Das ist keine K-Love-Sicherung.')
+  if (b.version !== 1) throw new Error(`Unbekannte Sicherungsversion (${String(b.version)}). Bitte K-Love aktualisieren.`)
+  if (!Array.isArray(b.dramas)) throw new Error('Die Sicherung enthält keine Dramenliste.')
+  if (b.dramas.some((d) => !d || typeof d.id !== 'string' || typeof d.title !== 'string')) throw new Error('Die Sicherung enthält beschädigte Einträge.')
+  if (b.songs !== undefined && !Array.isArray(b.songs)) throw new Error('Die Songliste in der Sicherung ist beschädigt.')
+  return { ...b, songs: b.songs ?? [] } as Backup
+}
+
+export interface RestoreResult {
+  added: number
+  updated: number
+  skipped: number
+  songsAdded: number
+}
+
+const UNDO_KEY = 'undoSnapshot'
+
+/**
+ * Stellt eine Sicherung wieder her. Vorher wird der aktuelle Stand als Rückgängig-Kopie gespeichert.
+ * - replace: aktuelle Dramen/Songs/Einstellungen werden durch die Sicherung ersetzt
+ * - merge: fehlende Dramen kommen dazu, vorhandene nur, wenn die Sicherung neuer ist; Songs nur ergänzen
+ */
+export async function restoreBackup(b: Backup, mode: 'replace' | 'merge'): Promise<RestoreResult> {
+  validateBackup(b)
+  const snapshot = await exportBackup()
+  const res: RestoreResult = { added: 0, updated: 0, skipped: 0, songsAdded: 0 }
   await db.transaction('rw', db.dramas, db.songs, db.kv, async () => {
+    await db.kv.put({ key: UNDO_KEY, value: snapshot })
     if (mode === 'replace') {
       await db.dramas.clear()
       await db.songs.clear()
+      await db.dramas.bulkPut(b.dramas)
+      await db.songs.bulkPut(b.songs)
+      // Zeitpunkt der letzten Sicherung dieses Geräts behalten
+      if (b.settings) await db.kv.put({ key: 'settings', value: { ...b.settings, lastBackupAt: snapshot.settings.lastBackupAt, lastAutoBackupHash: undefined } })
+      res.added = b.dramas.length
+      res.songsAdded = b.songs.length
+      return
     }
-    await db.dramas.bulkPut(b.dramas)
-    await db.songs.bulkPut(b.songs ?? [])
-    if (b.settings) await db.kv.put({ key: 'settings', value: b.settings })
+    const local = new Map(snapshot.dramas.map((d) => [d.id, d]))
+    const put: Drama[] = []
+    for (const d of b.dramas) {
+      const cur = local.get(d.id)
+      if (!cur) {
+        put.push(d)
+        res.added++
+      } else if ((d.updatedAt ?? '') > (cur.updatedAt ?? '')) {
+        put.push(d)
+        res.updated++
+      } else res.skipped++
+    }
+    await db.dramas.bulkPut(put)
+    const songIds = new Set(snapshot.songs.map((s) => s.id))
+    const newSongs = b.songs.filter((s) => !songIds.has(s.id))
+    await db.songs.bulkAdd(newSongs)
+    res.songsAdded = newSongs.length
+  })
+  return res
+}
+
+export const useUndoSnapshot = () => useLiveQuery(async () => ((await db.kv.get(UNDO_KEY))?.value as Backup | undefined) ?? null, [])
+
+/** Macht die letzte Wiederherstellung rückgängig. */
+export async function undoRestore() {
+  const snap = (await db.kv.get(UNDO_KEY))?.value as Backup | undefined
+  if (!snap) throw new Error('Nichts zum Rückgängigmachen vorhanden.')
+  await db.transaction('rw', db.dramas, db.songs, db.kv, async () => {
+    await db.dramas.clear()
+    await db.songs.clear()
+    await db.dramas.bulkPut(snap.dramas)
+    await db.songs.bulkPut(snap.songs)
+    await db.kv.put({ key: 'settings', value: snap.settings })
+    await db.kv.delete(UNDO_KEY)
   })
 }
+
+export const discardUndoSnapshot = () => db.kv.delete(UNDO_KEY)
 
 export async function bulkAddDramas(list: Drama[]) {
   await db.dramas.bulkPut(list)
