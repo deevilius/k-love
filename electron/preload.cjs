@@ -3,6 +3,7 @@ const { contextBridge, ipcRenderer } = require('electron')
 contextBridge.exposeInMainWorld('klove', {
   getVersion: () => ipcRenderer.invoke('klove:version'),
   checkForUpdates: () => ipcRenderer.invoke('klove:check-updates'),
+  diagnostics: () => ipcRenderer.invoke('klove:diagnostics'),
   update: {
     getState: () => ipcRenderer.invoke('klove:update-get-state'),
     download: () => ipcRenderer.invoke('klove:update-download'),

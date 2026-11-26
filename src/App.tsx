@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from 'react-router-dom'
+import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
 import { Suspense, lazy, useEffect } from 'react'
 import Library from './pages/Library'
 import DramaDetail from './pages/DramaDetail'
@@ -10,6 +10,7 @@ import { db } from './db/db'
 import { startAutoBackup } from './lib/autoBackup'
 import { BackupReminder } from './components/BackupReminder'
 import { UpdateDialog } from './components/UpdateDialog'
+import { ErrorBoundary } from './components/ErrorBoundary'
 
 const NAV = [
   { to: '/', label: 'Bibliothek', icon: '📚', end: true },
@@ -19,6 +20,7 @@ const NAV = [
 ]
 
 export default function App() {
+  const loc = useLocation()
   useEffect(() => {
     // Browser bitten, die Daten dauerhaft zu speichern (nicht automatisch löschen)
     navigator.storage?.persist?.().catch(() => {})
@@ -32,6 +34,7 @@ export default function App() {
         <NavLink to="/" className="flex items-center gap-2">
           <img src="/icon.svg" alt="" className="h-9 w-9" />
           <span className="h-display text-2xl font-bold text-pink-700 dark:text-pink-300">K-Love</span>
+          <span className="rounded-full bg-pink-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase">Beta</span>
         </NavLink>
         <nav className="hidden gap-1 sm:flex">
           {NAV.map((n) => (
@@ -54,6 +57,8 @@ export default function App() {
       <UpdateDialog />
 
       <main className="flex-1">
+        {/* key: beim Seitenwechsel wird ein abgefangener Fehler zurückgesetzt */}
+        <ErrorBoundary key={loc.pathname}>
         <Suspense fallback={null}>
         <Routes>
           <Route path="/" element={<Library />} />
@@ -64,6 +69,7 @@ export default function App() {
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
         </Suspense>
+        </ErrorBoundary>
       </main>
 
       {/* Untere Navigation fürs Smartphone */}

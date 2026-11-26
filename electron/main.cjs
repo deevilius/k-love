@@ -49,6 +49,12 @@ function start() {
 
   ipcMain.handle('klove:check-updates', () => checkForUpdates(true))
   ipcMain.handle('klove:version', () => app.getVersion())
+  // Für „Feedback senden“ – bewusst ohne Pfade oder Benutzernamen, das Issue ist öffentlich
+  ipcMain.handle('klove:diagnostics', () => ({
+    version: app.getVersion(),
+    os: `Windows ${process.getSystemVersion()} (${process.arch})`,
+    hasProfile: listFiles(readConfig().dir).some((f) => f.kind === 'profile'),
+  }))
   setupBackup()
 
   createWindow()

@@ -81,12 +81,7 @@ export function useSettings(): Settings {
 }
 function mergeSettings(v: unknown): Settings {
   const s = (v ?? {}) as Partial<Settings>
-  return {
-    ...DEFAULT_SETTINGS,
-    ...s,
-    // Kategorien gibt die App fest vor – früher umbenannte Werte werden ignoriert
-    ratingLabels: DEFAULT_SETTINGS.ratingLabels,
-  }
+  return { ...DEFAULT_SETTINGS, ...s }
 }
 export async function getSettings(): Promise<Settings> {
   return mergeSettings((await db.kv.get('settings'))?.value)

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { allDramas, updateDrama, useSettings } from '../db/repo'
-import { searchTv, tvDetails } from '../lib/tmdb'
+import { allDramas, updateDrama } from '../db/repo'
 import { bestMatch, completeCandidate, searchFreePosters } from '../lib/freePosters'
 import { BackupSection } from '../components/BackupSection'
+import { openFeedback } from '../lib/diagnostics'
 import { showUpdateDialog, useUpdateState } from '../components/UpdateDialog'
 
 const muted = 'text-sm text-stone-600 dark:text-rose-100/70'
@@ -72,57 +72,44 @@ function AppSection() {
         )}
       </div>
       {msg && <p className="text-sm">{msg}</p>}
+      <div className="flex flex-wrap items-center gap-3 border-t border-rose-100 pt-3 dark:border-white/10">
+        <p className="flex-1 text-sm text-stone-600 dark:text-rose-100/70">Du testest eine Beta – wir freuen uns über jede Rückmeldung! (GitHub-Konto nötig)</p>
+        <button className="btn-outline px-3 py-1 text-sm" onClick={() => openFeedback('feedback')}>
+          💬 Feedback senden
+        </button>
+        <button className="btn-ghost px-3 py-1 text-sm" onClick={() => openFeedback('bug')}>
+          🐞 Fehler melden
+        </button>
+      </div>
     </section>
   )
 }
 
 function PosterSection() {
-  const settings = useSettings()
   const [fill, setFill] = useState<{ done: number; total: number } | null>(null)
 
   const fillMissing = async () => {
-    const k = settings.tmdbApiKey
     const all = await allDramas()
-    const missing = k ? all.filter((d) => !d.tmdbId) : all.filter((d) => !d.posterUrl)
+    const missing = all.filter((d) => !d.posterUrl)
     if (!missing.length) return alert('Alle Dramen haben bereits ein Poster. 🎉')
     if (!confirm(`${missing.length} Dramen ohne Poster gefunden. Jetzt automatisch suchen?\n\nDer beste Treffer wird übernommen, deine Bewertungen und Angaben bleiben unverändert.`)) return
     const notFound: string[] = []
     setFill({ done: 0, total: missing.length })
     for (const [i, d] of missing.entries()) {
       try {
-        if (k) {
-          const res = await searchTv(d.title, k, settings.tmdbLanguage)
-          const best = (d.year && res.find((r) => r.first_air_date?.startsWith(String(d.year)))) || res[0]
-          if (!best) throw new Error('nicht gefunden')
-          const info = await tvDetails(best.id, k, settings.tmdbLanguage)
-          await updateDrama(d.id, {
-            tmdbId: info.tmdbId,
-            posterUrl: d.posterUrl || info.posterUrl,
-            backdropUrl: info.backdropUrl,
-            overview: d.overview || info.overview,
-            originalTitle: d.originalTitle || info.originalTitle,
-            year: d.year ?? info.year,
-            episodes: d.episodes ?? info.episodes,
-            episodeRuntime: info.episodeRuntime,
-            genres: d.genres.length ? d.genres : info.genres,
-            actors: d.actors.length ? d.actors : info.actors,
-            platform: d.platform || info.platform,
-          })
-        } else {
-          const best = bestMatch(await searchFreePosters(d.title), d.title, d.year)
-          if (!best) throw new Error('nicht gefunden')
-          const info = await completeCandidate(best)
-          await updateDrama(d.id, {
-            posterUrl: info.posterUrl,
-            overview: d.overview || info.overview,
-            year: d.year ?? info.year,
-            episodes: d.episodes ?? info.episodes,
-            episodeRuntime: d.episodeRuntime ?? info.episodeRuntime,
-            genres: d.genres.length ? d.genres : (info.genres ?? []),
-            platform: d.platform || info.platform,
-          })
-          await new Promise((r) => setTimeout(r, 400)) // freundlich zu den freien Diensten
-        }
+        const best = bestMatch(await searchFreePosters(d.title), d.title, d.year)
+        if (!best) throw new Error('nicht gefunden')
+        const info = await completeCandidate(best)
+        await updateDrama(d.id, {
+          posterUrl: info.posterUrl,
+          overview: d.overview || info.overview,
+          year: d.year ?? info.year,
+          episodes: d.episodes ?? info.episodes,
+          episodeRuntime: d.episodeRuntime ?? info.episodeRuntime,
+          genres: d.genres.length ? d.genres : (info.genres ?? []),
+          platform: d.platform || info.platform,
+        })
+        await new Promise((r) => setTimeout(r, 400)) // freundlich zu den freien Diensten
       } catch {
         notFound.push(d.title)
       }

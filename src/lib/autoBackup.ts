@@ -1,7 +1,10 @@
+import { liveQuery } from 'dexie'
+import { db } from '../db/db'
 import { exportBackup, getSettings, saveSettings, type Backup } from '../db/repo'
 import { downloadBlob } from './util'
 
-/** So oft wird geprüft, ob sich etwas geändert hat – nur dann wird das Profil neu geschrieben */
+/** Profil wird kurz nach jeder Änderung geschrieben; das Intervall ist nur die Rückfallebene */
+const AFTER_CHANGE = 5 * 1000
 const INTERVAL = 5 * 60 * 1000
 const FIRST_DELAY = 10 * 1000
 
@@ -96,11 +99,21 @@ export function startAutoBackup(): () => void {
   }
   const first = setTimeout(tick, FIRST_DELAY)
   const timer = setInterval(tick, INTERVAL)
+  // Bei jeder Änderung an Dramen oder Songs entprellt speichern (erste Meldung = Startzustand, überspringen)
+  let debounce: ReturnType<typeof setTimeout> | undefined
+  let initial = true
+  const sub = liveQuery(() => Promise.all([db.dramas.toArray(), db.songs.toArray()])).subscribe(() => {
+    if (initial) return void (initial = false)
+    clearTimeout(debounce)
+    debounce = setTimeout(tick, AFTER_CHANGE)
+  })
   // Der Hauptprozess fragt nur, wenn die automatische Sicherung aktiv ist
   const off = api.onRequest(async () => void (await runAutoBackup()))
   return () => {
     clearTimeout(first)
     clearInterval(timer)
+    clearTimeout(debounce)
+    sub.unsubscribe()
     off()
   }
 }

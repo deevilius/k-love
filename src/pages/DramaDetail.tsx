@@ -1,6 +1,6 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteDrama, updateDrama, useDrama, useSettings } from '../db/repo'
-import { RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
+import { deleteDrama, updateDrama, useDrama } from '../db/repo'
+import { DEFAULT_RATING_LABELS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
 import { fmtRating, overall, today } from '../lib/util'
 import { Poster, Progress, RatingHearts } from '../components/ui'
 import OstSection from '../components/OstSection'
@@ -8,7 +8,6 @@ import OstSection from '../components/OstSection'
 export default function DramaDetail() {
   const { id } = useParams()
   const d = useDrama(id)
-  const settings = useSettings()
   const nav = useNavigate()
 
   if (d === undefined) return null
@@ -156,7 +155,7 @@ export default function DramaDetail() {
           <h2 className="h-display text-lg font-bold">💗 Meine Bewertung</h2>
           {RATING_KEYS.map((k) => (
             <div key={k} className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{settings.ratingLabels[k]}</span>
+              <span className="font-semibold">{DEFAULT_RATING_LABELS[k]}</span>
               <RatingHearts value={d.ratings[k]} onChange={(v) => update({ ratings: { ...d.ratings, [k]: v } })} />
             </div>
           ))}
