@@ -4,3 +4,4 @@ dev-dist
 *.local
 release/
 build/*.ico
+release-notes.md

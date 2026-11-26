@@ -4,21 +4,19 @@ import {
   allDramas,
   allSongs,
   bulkAddDramas,
-  exportBackup,
-  restoreBackup,
   saveSettings,
   updateDrama,
   useDramas,
   useSettings,
-  type Backup,
 } from '../db/repo'
 import { db } from '../db/db'
 import { RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type WatchStatus } from '../types'
 import { exportExcel, fieldLabels, guessField, mapRows, readWorkbook, type ImportField, type ImportResult, type Sheet } from '../lib/excel'
 import { searchTv, tvDetails } from '../lib/tmdb'
 import { bestMatch, completeCandidate, searchFreePosters } from '../lib/freePosters'
-import { downloadBlob } from '../lib/util'
 import { StatusBadge } from '../components/ui'
+import { BackupSection } from '../components/BackupSection'
+import { showUpdateDialog, useUpdateState } from '../components/UpdateDialog'
 
 export default function SettingsPage() {
   const settings = useSettings()
@@ -30,50 +28,11 @@ export default function SettingsPage() {
     if (loc.hash) document.getElementById(loc.hash.slice(1))?.scrollIntoView({ behavior: 'smooth' })
   }, [loc.hash])
 
-  const backupJson = async () => {
-    const b = await exportBackup()
-    downloadBlob(new Blob([JSON.stringify(b, null, 2)], { type: 'application/json' }), `k-love-backup-${new Date().toISOString().slice(0, 10)}.json`)
-    await saveSettings({ lastBackupAt: new Date().toISOString() })
-  }
-
-  const restoreRef = useRef<HTMLInputElement>(null)
-  const restore = async (file: File) => {
-    try {
-      const b = JSON.parse(await file.text()) as Backup
-      const replace = confirm(
-        `Sicherung vom ${new Date(b.exportedAt).toLocaleString('de-DE')} mit ${b.dramas?.length ?? 0} Dramen.\n\nOK = aktuelle Daten ERSETZEN\nAbbrechen = zusammenführen`,
-      )
-      await restoreBackup(b, replace ? 'replace' : 'merge')
-      alert('Sicherung wiederhergestellt ✅')
-    } catch (e) {
-      alert('Fehler: ' + (e as Error).message)
-    }
-  }
-
-  const daysSinceBackup = settings.lastBackupAt ? Math.floor((Date.now() - new Date(settings.lastBackupAt).getTime()) / 86400000) : null
-
   return (
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="h-display text-2xl font-bold">Einstellungen</h1>
 
-      <section className="card space-y-3 p-5">
-        <h2 className="h-display text-lg font-bold">💾 Sicherung</h2>
-        <p className="text-sm text-stone-600 dark:text-rose-100/70">
-          Alle Daten liegen nur auf diesem Gerät. Lade regelmäßig eine Sicherung herunter – damit kannst du auch auf einen anderen Rechner oder ins Handy umziehen.
-        </p>
-        <p className="text-sm font-semibold">
-          {daysSinceBackup === null ? '⚠️ Noch keine Sicherung erstellt.' : daysSinceBackup > 14 ? `⚠️ Letzte Sicherung vor ${daysSinceBackup} Tagen.` : `✅ Letzte Sicherung vor ${daysSinceBackup} Tag(en).`}
-        </p>
-        <div className="flex flex-wrap gap-2">
-          <button className="btn-primary" onClick={backupJson}>
-            ⬇️ Sicherung herunterladen
-          </button>
-          <button className="btn-outline" onClick={() => restoreRef.current?.click()}>
-            ⬆️ Sicherung wiederherstellen
-          </button>
-          <input ref={restoreRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && restore(e.target.files[0]).finally(() => (e.target.value = ''))} />
-        </div>
-      </section>
+      <BackupSection />
 
       <ImportSection existing={new Set((dramas ?? []).map((d) => d.title.toLowerCase()))} />
 
@@ -129,11 +88,12 @@ export default function SettingsPage() {
   )
 }
 
-/** Nur in der Desktop-App: Version + Update-Prüfung */
+/** Version + Updates */
 function AppSection() {
   const [version, setVersion] = useState('')
   const [msg, setMsg] = useState('')
   const [busy, setBusy] = useState(false)
+  const update = useUpdateState()
   useEffect(() => {
     window.klove?.getVersion().then(setVersion)
   }, [])
@@ -144,23 +104,36 @@ function AppSection() {
     setMsg('Suche nach Updates …')
     const r = await window.klove!.checkForUpdates()
     setBusy(false)
+    if (r.status === 'available') {
+      setMsg('')
+      showUpdateDialog()
+      return
+    }
     setMsg(
-      r.status === 'downloading'
-        ? `✨ Version ${r.version} wird geladen – du wirst gleich gefragt, ob K-Love neu starten soll.`
-        : r.status === 'current'
-          ? '💕 K-Love ist auf dem neuesten Stand.'
-          : r.status === 'dev'
-            ? 'Updates gibt es nur in der installierten App.'
-            : `⚠️ Update-Prüfung fehlgeschlagen: ${r.message ?? ''}`,
+      r.status === 'current'
+        ? '💕 K-Love ist auf dem neuesten Stand.'
+        : r.status === 'dev'
+          ? 'Updates gibt es nur in der installierten App.'
+          : `⚠️ Update-Prüfung fehlgeschlagen: ${r.message ?? ''}`,
     )
   }
+
+  const hasUpdate = update.status !== 'idle' && !!update.version
 
   return (
     <section className="card space-y-3 p-5">
       <h2 className="h-display text-lg font-bold">ℹ️ App</h2>
       <p className="text-sm text-stone-600 dark:text-rose-100/70">
-        K-Love {version && `Version ${version}`} · Updates werden automatisch installiert.
+        K-Love {version && `Version ${version}`} · Neue Versionen werden dir mit Changelog angeboten und erst nach deiner Zustimmung installiert.
       </p>
+      {hasUpdate && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl bg-pink-50 p-3 text-sm dark:bg-pink-400/10">
+          <span className="flex-1 font-semibold">✨ Version {update.version} ist verfügbar.</span>
+          <button className="btn-primary px-3 py-1 text-sm" onClick={showUpdateDialog}>
+            Changelog & Update
+          </button>
+        </div>
+      )}
       <button className="btn-outline" onClick={check} disabled={busy}>
         🔄 Nach Updates suchen
       </button>

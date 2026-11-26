@@ -7,6 +7,9 @@ const Stats = lazy(() => import('./pages/Stats'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 import { cx } from './lib/util'
 import { db } from './db/db'
+import { startAutoBackup } from './lib/autoBackup'
+import { BackupReminder } from './components/BackupReminder'
+import { UpdateDialog } from './components/UpdateDialog'
 
 const NAV = [
   { to: '/', label: 'Bibliothek', icon: '📚', end: true },
@@ -20,6 +23,7 @@ export default function App() {
     // Browser bitten, die Daten dauerhaft zu speichern (nicht automatisch löschen)
     navigator.storage?.persist?.().catch(() => {})
     void db.open()
+    return startAutoBackup()
   }, [])
 
   return (
@@ -45,6 +49,9 @@ export default function App() {
           ))}
         </nav>
       </header>
+
+      <BackupReminder />
+      <UpdateDialog />
 
       <main className="flex-1">
         <Suspense fallback={null}>
