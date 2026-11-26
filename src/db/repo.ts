@@ -81,11 +81,7 @@ export function useSettings(): Settings {
 }
 function mergeSettings(v: unknown): Settings {
   const s = (v ?? {}) as Partial<Settings>
-  return {
-    ...DEFAULT_SETTINGS,
-    ...s,
-    ratingLabels: { ...DEFAULT_SETTINGS.ratingLabels, ...(s.ratingLabels ?? {}) },
-  }
+  return { ...DEFAULT_SETTINGS, ...s }
 }
 export async function getSettings(): Promise<Settings> {
   return mergeSettings((await db.kv.get('settings'))?.value)

@@ -1,6 +1,6 @@
 import * as XLSX from 'xlsx'
 import { emptyDrama } from '../db/repo'
-import { RATING_KEYS, STATUS_LABELS, type Drama, type RatingKey, type Settings, type Song, type WatchStatus } from '../types'
+import { DEFAULT_RATING_LABELS, RATING_KEYS, STATUS_LABELS, type Drama, type RatingKey, type Settings, type Song, type WatchStatus } from '../types'
 import { downloadBlob, splitList } from './util'
 
 /** Felder, denen eine Excel-Spalte zugeordnet werden kann */
@@ -36,11 +36,11 @@ export function fieldLabels(s: Settings): Record<ImportField, string> {
     status: 'Status',
     currentEpisode: 'Aktuelle Episode',
     overallRating: 'Gesamtnote',
-    story: `Note: ${s.ratingLabels.story}`,
-    acting: `Note: ${s.ratingLabels.acting}`,
-    chemistry: `Note: ${s.ratingLabels.chemistry}`,
-    ost: `Note: ${s.ratingLabels.ost}`,
-    ending: `Note: ${s.ratingLabels.ending}`,
+    story: `Note: ${DEFAULT_RATING_LABELS.story}`,
+    acting: `Note: ${DEFAULT_RATING_LABELS.acting}`,
+    chemistry: `Note: ${DEFAULT_RATING_LABELS.chemistry}`,
+    ost: `Note: ${DEFAULT_RATING_LABELS.ost}`,
+    ending: `Note: ${DEFAULT_RATING_LABELS.ending}`,
     favorite: 'Favorit',
     notes: 'Notizen',
     tags: 'Tags',
@@ -226,7 +226,7 @@ export function mapRows(
 }
 
 export function exportExcel(dramas: Drama[], songs: Song[], s: Settings) {
-  const L = s.ratingLabels
+  const L = DEFAULT_RATING_LABELS
   const titleById = new Map(dramas.map((d) => [d.id, d.title]))
   const dramaRows = [...dramas]
     .sort((a, b) => a.title.localeCompare(b.title, 'de'))

@@ -4,6 +4,13 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 🧪 Erste Beta! Über Einstellungen → „Feedback senden“ oder „Fehler melden“ erreichst du uns direkt.
+- ⚙️ Aufgeräumte Einstellungen: nur noch Profil, Poster und App.
+- 💾 Dein Profil wird jetzt wenige Sekunden nach jeder Änderung gespeichert.
+- 📝 Beim Bearbeiten eines Dramas fragt K-Love nach, bevor ungespeicherte Änderungen verloren gehen.
+- 🛟 Falls doch einmal etwas abstürzt, siehst du statt eines leeren Fensters eine Erklärung und kannst den Fehler melden.
+- Die Bewertungskategorien sind jetzt fest vorgegeben. Excel-Import und -Export sind vorübergehend entfernt.
+
 ## 0.2.0 – 2026-11-26
 
 - 💾 Dein Profil (alle Dramen, Songs und Einstellungen) wird automatisch in einer Datei gespeichert – standardmäßig unter Dokumente\K-Love, auf Wunsch z. B. in OneDrive.

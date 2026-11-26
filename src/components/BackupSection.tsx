@@ -1,21 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { discardUndoSnapshot, restoreBackup, undoRestore, useAllSongs, useDramas, useSettings, useUndoSnapshot, validateBackup, type Backup, type RestoreResult } from '../db/repo'
 import { downloadBackup, getAutoBackupError, isDesktop, onAutoBackupError, runAutoBackup, writePreRestoreCopy } from '../lib/autoBackup'
-import type { BackupConfig, BackupFile } from '../electron'
+import type { BackupConfig } from '../electron'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
-const fmtSize = (n: number) => (n < 1024 * 1024 ? `${Math.max(1, Math.round(n / 1024))} KB` : `${(n / 1024 / 1024).toFixed(1)} MB`)
 
-export function BackupSection() {
-  const settings = useSettings()
-  const undo = useUndoSnapshot()
+/** Öffnen einer Sicherung → Dialog → Wiederherstellen; jede Stelle, die das anbietet, nutzt diesen Hook */
+function useRestoreFlow() {
   const [pending, setPending] = useState<{ backup: Backup; source: string } | null>(null)
   const [result, setResult] = useState('')
-  const [listVersion, setListVersion] = useState(0)
-  const fileRef = useRef<HTMLInputElement>(null)
-
-  const days = settings.lastBackupAt ? Math.floor((Date.now() - new Date(settings.lastBackupAt).getTime()) / 86400000) : null
 
   const openFile = async (file: File) => {
     try {
@@ -39,7 +33,6 @@ export function BackupSection() {
       await writePreRestoreCopy()
       const r = await restoreBackup(pending.backup, mode)
       setResult(describe(r, mode))
-      setListVersion((v) => v + 1)
     } catch (e) {
       alert('Fehler: ' + (e as Error).message)
     } finally {
@@ -47,11 +40,25 @@ export function BackupSection() {
     }
   }
 
+  const dialog = pending && <RestoreDialog backup={pending.backup} source={pending.source} onCancel={() => setPending(null)} onRestore={doRestore} />
+  return { openFile, openStored, result, setResult, dialog }
+}
+
+/** Oberste Karte der Einstellungen: Speicherstatus + Profilordner */
+export function BackupSection() {
+  const settings = useSettings()
+  const undo = useUndoSnapshot()
+  const flow = useRestoreFlow()
+  const desktop = isDesktop()
+
+  const days = settings.lastBackupAt ? Math.floor((Date.now() - new Date(settings.lastBackupAt).getTime()) / 86400000) : null
+  const when = days === 0 ? 'heute' : `vor ${days} Tag(en)`
+
   const doUndo = async () => {
     if (!confirm('Den Stand von vor der letzten Wiederherstellung zurückholen?')) return
     try {
       await undoRestore()
-      setResult('↩️ Wiederherstellung rückgängig gemacht.')
+      flow.setResult('↩️ Wiederherstellung rückgängig gemacht.')
     } catch (e) {
       alert((e as Error).message)
     }
@@ -59,28 +66,20 @@ export function BackupSection() {
 
   return (
     <section className="card space-y-3 p-5" id="backup">
-      <h2 className="h-display text-lg font-bold">💾 Sicherung</h2>
-      <p className="text-sm text-stone-600 dark:text-rose-100/70">
-        K-Love hält dein Profil automatisch in einem Ordner deiner Wahl aktuell. Zusätzlich kannst du eine Sicherung als einzelne Datei speichern, z. B. zum
-        Weitergeben.
-      </p>
+      <h2 className="h-display text-lg font-bold">💾 Profil</h2>
       <p className="text-sm font-semibold">
-        {days === null ? '⚠️ Noch keine Sicherung erstellt.' : days > 14 ? `⚠️ Letzte Sicherung vor ${days} Tagen.` : `✅ Letzte Sicherung ${days === 0 ? 'heute' : `vor ${days} Tag(en)`}.`}
+        {days === null
+          ? '⚠️ Noch nicht gesichert.'
+          : days > 14
+            ? `⚠️ Letzte Sicherung vor ${days} Tagen.`
+            : desktop
+              ? `✅ Wird automatisch gespeichert · zuletzt ${when}`
+              : `✅ Letzte Sicherung ${when}`}
       </p>
 
-      {isDesktop() && <DesktopBackup onRestore={openStored} listVersion={listVersion} />}
+      {desktop ? <ProfileFolder onRestore={flow.openStored} /> : <FileButtons onOpen={flow.openFile} />}
 
-      <div className="flex flex-wrap gap-2">
-        <button className="btn-outline" onClick={() => downloadBackup()}>
-          ⬇️ Als Datei speichern
-        </button>
-        <button className="btn-outline" onClick={() => fileRef.current?.click()}>
-          ⬆️ Aus Datei wiederherstellen
-        </button>
-        <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && openFile(e.target.files[0]).finally(() => (e.target.value = ''))} />
-      </div>
-
-      {result && <p className="text-sm font-semibold text-emerald-600">{result}</p>}
+      {flow.result && <p className="text-sm font-semibold text-emerald-600">{flow.result}</p>}
 
       {undo && (
         <div className="flex flex-wrap items-center gap-2 rounded-xl bg-rose-50 p-3 text-sm dark:bg-white/5">
@@ -90,53 +89,42 @@ export function BackupSection() {
           <button className="btn-outline px-3 py-1 text-sm" onClick={doUndo}>
             ↩️ Rückgängig machen
           </button>
-          <button className="btn-ghost px-3 py-1 text-sm" onClick={() => (discardUndoSnapshot(), setResult(''))}>
+          <button className="btn-ghost px-3 py-1 text-sm" onClick={() => (discardUndoSnapshot(), flow.setResult(''))}>
             Verwerfen
           </button>
         </div>
       )}
 
-      {pending && <RestoreDialog backup={pending.backup} source={pending.source} onCancel={() => setPending(null)} onRestore={doRestore} />}
+      {flow.dialog}
     </section>
   )
 }
 
-function describe(r: RestoreResult, mode: 'replace' | 'merge') {
-  if (mode === 'replace') return `✅ Daten ersetzt: ${r.added} Dramen, ${r.songsAdded} Songs.`
-  const parts = [`${r.added} neu`, `${r.updated} aktualisiert`]
-  if (r.skipped) parts.push(`${r.skipped} unverändert (hier neuer oder gleich)`)
-  return `✅ Zusammengeführt: ${parts.join(', ')}${r.songsAdded ? `, ${r.songsAdded} Songs ergänzt` : ''}.`
+function FileButtons({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
+  const fileRef = useRef<HTMLInputElement>(null)
+  return (
+    <div className="flex flex-wrap gap-2">
+      <button className="btn-outline" onClick={() => downloadBackup()}>
+        ⬇️ Als Datei speichern
+      </button>
+      <button className="btn-outline" onClick={() => fileRef.current?.click()}>
+        ⬆️ Aus Datei laden
+      </button>
+      <input ref={fileRef} type="file" accept=".json,application/json" hidden onChange={(e) => e.target.files?.[0] && onOpen(e.target.files[0]).finally(() => (e.target.value = ''))} />
+    </div>
+  )
 }
 
-function DesktopBackup({ onRestore, listVersion }: { onRestore: (name: string) => void; listVersion: number }) {
+function ProfileFolder({ onRestore }: { onRestore: (name: string) => void }) {
   const api = window.klove!.backup
   const [config, setConfig] = useState<BackupConfig | null>(null)
-  const [files, setFiles] = useState<BackupFile[]>([])
-  const [msg, setMsg] = useState('')
   const [error, setError] = useState(getAutoBackupError)
-  const [busy, setBusy] = useState(false)
 
-  const refresh = useCallback(async () => {
-    setConfig(await api.config())
-    setFiles(await api.list())
-  }, [api])
   useEffect(() => {
-    void refresh()
-  }, [refresh, listVersion])
+    // Automatisches Speichern ist immer an – früher abschaltbar, daher hier wieder einschalten
+    api.config().then(async (c) => setConfig(c.enabled ? c : await api.setEnabled(true)))
+  }, [api])
   useEffect(() => onAutoBackupError(() => setError(getAutoBackupError())), [])
-
-  const backupNow = async () => {
-    setBusy(true)
-    try {
-      await runAutoBackup(true)
-      setMsg('✅ Profil aktualisiert')
-      await refresh()
-    } catch (e) {
-      setMsg('❌ ' + (e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
 
   const changeDir = async () => {
     const before = config?.dir
@@ -148,83 +136,33 @@ function DesktopBackup({ onRestore, listVersion }: { onRestore: (name: string) =
       if (existing) onRestore(existing.name)
       else await runAutoBackup(true).catch(() => {})
     }
-    await refresh()
   }
 
   if (!config) return null
-  const profile = files.find((f) => f.kind === 'profile')
-  const copies = files.filter((f) => f.kind !== 'profile')
-
   return (
-    <div className="space-y-3 rounded-xl border border-rose-100 p-3 text-sm dark:border-white/10">
-      <p>
-        Alle Dramen, Songs und Einstellungen stehen in <b>einer</b> Profildatei, die K-Love bei Änderungen automatisch aktualisiert. Um alles zu sichern
-        oder auf einen anderen Rechner mitzunehmen, kopierst du einfach diesen Ordner.
-      </p>
-      <label className="flex items-center gap-2 font-semibold">
-        <input type="checkbox" checked={config.enabled} onChange={async (e) => setConfig(await api.setEnabled(e.target.checked))} />
-        Profil automatisch aktualisieren (bei Änderungen und beim Schließen)
-      </label>
-      <div>
-        <span className="label">Profilordner</span>
-        <div className="flex flex-wrap items-center gap-2">
-          <code className="min-w-0 flex-1 truncate rounded-lg bg-rose-50 px-2 py-1 text-xs dark:bg-white/5" title={config.dir}>
-            {config.dir}
-          </code>
-          <button className="btn-outline px-3 py-1 text-sm" onClick={changeDir}>
-            📁 Ordner ändern …
-          </button>
-          <button className="btn-ghost px-3 py-1 text-sm" onClick={() => api.openDir()}>
-            Öffnen
-          </button>
-        </div>
-        <p className="mt-1 text-xs text-stone-500 dark:text-rose-100/60">
-          Tipp: Wähle einen Ordner in OneDrive oder Dropbox – dann liegt dein Profil automatisch auch in der Cloud.
-        </p>
-      </div>
-
-      {error && <p className="font-semibold text-red-600">⚠️ Profil konnte nicht gespeichert werden: {error}</p>}
-
-      <div className="flex flex-wrap items-center gap-3 rounded-lg bg-rose-50 px-3 py-2 dark:bg-white/5">
-        <span className="flex-1">
-          {profile ? (
-            <>
-              <b>{profile.name}</b> · {profile.dramas >= 0 ? `${profile.dramas} Dramen · ` : ''}gespeichert {fmtDate(profile.date)} · {fmtSize(profile.size)}
-            </>
-          ) : (
-            'Noch kein Profil in diesem Ordner.'
-          )}
-        </span>
-        <button className="btn-outline px-3 py-1 text-sm" onClick={backupNow} disabled={busy}>
-          {busy ? 'Speichere …' : '💾 Jetzt speichern'}
+    <div className="space-y-1">
+      <div className="flex flex-wrap items-center gap-2">
+        <code className="min-w-0 flex-1 truncate rounded-lg bg-rose-50 px-2 py-1 text-xs dark:bg-white/5" title={config.dir}>
+          {config.dir}
+        </code>
+        <button className="btn-outline px-3 py-1 text-sm" onClick={changeDir}>
+          📁 Ordner ändern
         </button>
-        {msg && <span>{msg}</span>}
+        <button className="btn-ghost px-3 py-1 text-sm" onClick={() => api.openDir()}>
+          Öffnen
+        </button>
       </div>
-
-      {copies.length > 0 && (
-        <div>
-          <span className="label">Sicherheitskopien</span>
-          <ul className="divide-y divide-rose-100 rounded-xl border border-rose-100 dark:divide-white/5 dark:border-white/10">
-            {copies.map((f) => (
-              <li key={f.name} className="flex items-center gap-2 px-3 py-1.5">
-                <span className="flex-1">
-                  {f.kind === 'previous' ? 'Vorheriger Stand' : 'Vor der letzten Wiederherstellung'}
-                  <span className="ml-2 text-xs text-stone-500">
-                    {fmtDate(f.date)}
-                    {f.dramas >= 0 && ` · ${f.dramas} Dramen`}
-                  </span>
-                </span>
-                <button className="btn-ghost px-2 py-0.5 text-sm" onClick={() => onRestore(f.name)}>
-                  Wiederherstellen
-                </button>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-1 text-xs text-stone-500 dark:text-rose-100/60">Es gibt immer höchstens diese drei Dateien – sie werden überschrieben, nicht angehäuft.</p>
-        </div>
-      )}
+      <p className="text-xs text-stone-500 dark:text-rose-100/60">Tipp: Ein Ordner in OneDrive oder Dropbox legt dein Profil automatisch in die Cloud.</p>
+      {error && <p className="text-sm font-semibold text-red-600">⚠️ Profil konnte nicht gespeichert werden: {error}</p>}
     </div>
   )
+}
+
+function describe(r: RestoreResult, mode: 'replace' | 'merge') {
+  if (mode === 'replace') return `✅ Daten ersetzt: ${r.added} Dramen, ${r.songsAdded} Songs.`
+  const parts = [`${r.added} neu`, `${r.updated} aktualisiert`]
+  if (r.skipped) parts.push(`${r.skipped} unverändert (hier neuer oder gleich)`)
+  return `✅ Zusammengeführt: ${parts.join(', ')}${r.songsAdded ? `, ${r.songsAdded} Songs ergänzt` : ''}.`
 }
 
 function RestoreDialog({

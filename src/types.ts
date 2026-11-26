@@ -63,9 +63,6 @@ export interface Song {
 }
 
 export interface Settings {
-  tmdbApiKey?: string
-  tmdbLanguage: string
-  ratingLabels: Record<RatingKey, string>
   lastBackupAt?: string
   /** Prüfsumme der letzten automatischen Sicherung – unveränderte Daten werden nicht erneut gesichert */
   lastAutoBackupHash?: string
@@ -77,9 +74,6 @@ export interface Settings {
   skippedUpdateVersion?: string
 }
 
-export const DEFAULT_SETTINGS: Settings = {
-  tmdbLanguage: 'de-DE',
-  ratingLabels: DEFAULT_RATING_LABELS,
-}
+export const DEFAULT_SETTINGS: Settings = {}
 
 export const PLATFORMS = ['Netflix', 'Viki', 'Disney+', 'Prime Video', 'Apple TV+', 'Crunchyroll', 'Kocowa', 'Sonstiges']

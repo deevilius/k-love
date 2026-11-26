@@ -36,6 +36,7 @@ declare global {
     klove?: {
       getVersion(): Promise<string>
       checkForUpdates(): Promise<{ status: 'dev' | 'current' | 'available' | 'error'; version?: string; message?: string }>
+      diagnostics(): Promise<{ version: string; os: string; hasProfile: boolean }>
       update: {
         getState(): Promise<UpdateState>
         download(): Promise<void>

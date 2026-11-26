@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { emptyDrama, saveDrama, useDrama, useDramas, useSettings } from '../db/repo'
-import { PLATFORMS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
-import { IMG, searchTv, tvDetails, type TmdbSearchResult } from '../lib/tmdb'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
+import { emptyDrama, saveDrama, useDrama, useDramas } from '../db/repo'
+import { DEFAULT_RATING_LABELS, PLATFORMS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
 import { completeCandidate, searchFreePosters, type PosterCandidate } from '../lib/freePosters'
 import { avgRating, fmtRating, today } from '../lib/util'
 import { Poster, RatingHearts, TagInput } from '../components/ui'
@@ -11,14 +10,25 @@ export default function DramaForm() {
   const { id } = useParams()
   const existing = useDrama(id)
   const all = useDramas()
-  const settings = useSettings()
   const nav = useNavigate()
   const [d, setD] = useState<Drama | null>(id ? null : emptyDrama())
   const [error, setError] = useState('')
+  // Ausgangsstand, um ungespeicherte Änderungen zu erkennen
+  const initial = useRef<string | null>(null)
+  const saving = useRef(false)
+  if (d && initial.current === null) initial.current = JSON.stringify(d)
+  const dirty = !!d && initial.current !== JSON.stringify(d)
 
   useEffect(() => {
     if (id && existing && !d) setD(structuredClone(existing))
   }, [id, existing, d])
+
+  const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !saving.current && currentLocation.pathname !== nextLocation.pathname)
+  useEffect(() => {
+    if (blocker.state !== 'blocked') return
+    if (confirm('Du hast ungespeicherte Änderungen. Wirklich verlassen und die Änderungen verwerfen?')) blocker.proceed()
+    else blocker.reset()
+  }, [blocker])
 
   if (id && existing === undefined && !d) return null
   if (!d) return <p>Drama nicht gefunden.</p>
@@ -34,6 +44,7 @@ export default function DramaForm() {
     if (next.status === 'completed' && !next.finishedAt && existing?.status !== 'completed') next.finishedAt = today()
     if (next.status === 'watching' && !next.startedAt) next.startedAt = today()
     await saveDrama(next)
+    saving.current = true
     nav(`/drama/${d.id}`, { replace: true })
   }
 
@@ -46,42 +57,22 @@ export default function DramaForm() {
         </Link>
       </div>
 
-      {!settings.tmdbApiKey ? (
-        <FreePosterSearch
-          title={d.title}
-          onPick={(info, title) =>
-            setD((cur) => {
-              if (!cur) return cur
-              const next: Drama = { ...cur, posterUrl: info.posterUrl ?? cur.posterUrl, title: cur.title.trim() ? cur.title : title }
-              // übrige Angaben nur ergänzen, nichts Eigenes überschreiben
-              for (const [k, v] of Object.entries(info) as [keyof Drama, unknown][]) {
-                const old = next[k]
-                const empty = old === undefined || old === '' || (Array.isArray(old) && old.length === 0)
-                if (empty && v !== undefined && !(Array.isArray(v) && v.length === 0)) (next as unknown as Record<string, unknown>)[k] = v
-              }
-              return next
-            })
-          }
-        />
-      ) : (
-      <TmdbSearch
-        apiKey={settings.tmdbApiKey}
-        language={settings.tmdbLanguage}
-        initialQuery={id ? d.title : ''}
-        onPick={(info) =>
-          setD((cur) =>
-            cur
-              ? {
-                  ...cur,
-                  ...Object.fromEntries(Object.entries(info).filter(([, v]) => v !== undefined && !(Array.isArray(v) && v.length === 0))),
-                  // eigene Angaben behalten, falls schon gesetzt
-                  platform: cur.platform || info.platform,
-                }
-              : cur,
-          )
+      <FreePosterSearch
+        title={d.title}
+        onPick={(info, title) =>
+          setD((cur) => {
+            if (!cur) return cur
+            const next: Drama = { ...cur, posterUrl: info.posterUrl ?? cur.posterUrl, title: cur.title.trim() ? cur.title : title }
+            // übrige Angaben nur ergänzen, nichts Eigenes überschreiben
+            for (const [k, v] of Object.entries(info) as [keyof Drama, unknown][]) {
+              const old = next[k]
+              const empty = old === undefined || old === '' || (Array.isArray(old) && old.length === 0)
+              if (empty && v !== undefined && !(Array.isArray(v) && v.length === 0)) (next as unknown as Record<string, unknown>)[k] = v
+            }
+            return next
+          })
         }
       />
-      )}
 
       <div className="card grid gap-5 p-5 sm:grid-cols-[160px_1fr]">
         <div className="space-y-2">
@@ -156,7 +147,7 @@ export default function DramaForm() {
         <div className="grid gap-3 sm:grid-cols-2">
           {RATING_KEYS.map((k) => (
             <div key={k} className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{settings.ratingLabels[k]}</span>
+              <span className="font-semibold">{DEFAULT_RATING_LABELS[k]}</span>
               <RatingHearts value={d.ratings[k]} onChange={(v) => set('ratings', { ...d.ratings, [k]: v })} />
             </div>
           ))}
@@ -202,120 +193,23 @@ export default function DramaForm() {
   )
 }
 
-function TmdbSearch({
-  apiKey,
-  language,
-  initialQuery,
-  onPick,
-}: {
-  apiKey?: string
-  language: string
-  initialQuery: string
-  onPick: (info: Awaited<ReturnType<typeof tvDetails>>) => void
-}) {
-  const [q, setQ] = useState(initialQuery)
-  const [results, setResults] = useState<TmdbSearchResult[] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [err, setErr] = useState('')
-
-  if (!apiKey)
-    return (
-      <div className="card flex flex-wrap items-center justify-between gap-2 p-4 text-sm">
-        <span>💡 Mit einem kostenlosen TMDB-Schlüssel werden Cover, Besetzung & Episoden automatisch ausgefüllt.</span>
-        <Link to="/settings" className="btn-outline">
-          Einrichten
-        </Link>
-      </div>
-    )
-
-  const search = async () => {
-    if (!q.trim()) return
-    setBusy(true)
-    setErr('')
-    try {
-      setResults(await searchTv(q, apiKey, language))
-    } catch (e) {
-      setErr((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  const pick = async (r: TmdbSearchResult) => {
-    setBusy(true)
-    try {
-      onPick(await tvDetails(r.id, apiKey, language))
-      setResults(null)
-    } catch (e) {
-      setErr((e as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <div className="card space-y-3 p-4">
-      <div className="flex gap-2">
-        <input
-          className="input"
-          placeholder="🔎 Auf TMDB suchen, z. B. „Crash Landing on You“"
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void search()
-            }
-          }}
-        />
-        <button type="button" className="btn-primary" onClick={search} disabled={busy}>
-          {busy ? '…' : 'Suchen'}
-        </button>
-      </div>
-      {err && <p className="text-sm text-red-600">{err}</p>}
-      {results && (
-        <div className="max-h-96 space-y-1 overflow-y-auto">
-          {results.length === 0 && <p className="text-sm text-stone-500">Nichts gefunden.</p>}
-          {results.map((r) => (
-            <button
-              type="button"
-              key={r.id}
-              onClick={() => pick(r)}
-              className="flex w-full items-center gap-3 rounded-xl p-2 text-left hover:bg-rose-50 dark:hover:bg-white/5"
-            >
-              {r.poster_path ? (
-                <img src={IMG(r.poster_path, 'w92')} alt="" className="h-16 w-11 rounded object-cover" />
-              ) : (
-                <div className="h-16 w-11 rounded bg-rose-200 dark:bg-white/10" />
-              )}
-              <div className="min-w-0">
-                <div className="font-bold">
-                  {r.name} {r.first_air_date && <span className="font-normal text-stone-500">({r.first_air_date.slice(0, 4)})</span>}
-                </div>
-                {r.original_name !== r.name && <div className="text-xs text-stone-500">{r.original_name}</div>}
-                <div className="line-clamp-1 text-xs text-stone-500">{r.overview}</div>
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
 /** Poster-Suche ohne API-Schlüssel (TVmaze + Wikipedia) */
 function FreePosterSearch({ title, onPick }: { title: string; onPick: (info: Partial<Drama>, title: string) => void }) {
   const [q, setQ] = useState('')
   const [results, setResults] = useState<PosterCandidate[] | null>(null)
   const [busy, setBusy] = useState(false)
   const [picked, setPicked] = useState<string | null>(null)
+  const [err, setErr] = useState('')
 
   const search = async (query = q || title) => {
     if (!query.trim()) return
     setQ(query)
     setBusy(true)
+    setErr('')
     try {
       setResults(await searchFreePosters(query.trim()))
+    } catch {
+      setErr('Die Suche hat nicht geklappt – bist du mit dem Internet verbunden? Versuch es gleich nochmal.')
     } finally {
       setBusy(false)
     }
@@ -323,7 +217,12 @@ function FreePosterSearch({ title, onPick }: { title: string; onPick: (info: Par
 
   const pick = async (c: PosterCandidate) => {
     setPicked(c.key)
-    onPick(await completeCandidate(c), c.title)
+    try {
+      onPick(await completeCandidate(c), c.title)
+    } catch {
+      // Details nicht ladbar → wenigstens das Poster übernehmen
+      onPick({ posterUrl: c.posterUrl, year: c.year }, c.title)
+    }
   }
 
   return (
@@ -346,6 +245,7 @@ function FreePosterSearch({ title, onPick }: { title: string; onPick: (info: Par
         </button>
       </div>
       <p className="text-xs text-stone-500 dark:text-rose-100/60">Tipp: Englische Titel finden am meisten. Klick auf ein Poster übernimmt es (plus Jahr, Genres, Episoden, wenn noch leer).</p>
+      {err && <p className="text-sm text-red-600">{err}</p>}
       {results && results.length === 0 && <p className="text-sm text-stone-500">Kein Poster gefunden 🥲 – probier den englischen Titel oder füge unten eine Bild-URL ein.</p>}
       {results && results.length > 0 && (
         <div className="grid max-h-[26rem] grid-cols-3 gap-3 overflow-y-auto p-1 sm:grid-cols-5">

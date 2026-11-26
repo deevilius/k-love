@@ -1,8 +1,8 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useAllSongs, useDramas, useSettings } from '../db/repo'
-import { RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
+import { useAllSongs, useDramas } from '../db/repo'
+import { DEFAULT_RATING_LABELS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
 import { fmtRating, overall } from '../lib/util'
 import { Empty, Poster } from '../components/ui'
 
@@ -22,7 +22,6 @@ function watchedEpisodes(d: Drama) {
 export default function Stats() {
   const dramas = useDramas()
   const songs = useAllSongs()
-  const settings = useSettings()
 
   const s = useMemo(() => {
     const list = dramas ?? []
@@ -38,10 +37,10 @@ export default function Stats() {
     const perYear = count(list.filter((d) => d.finishedAt).map((d) => d.finishedAt!.slice(0, 4))).sort((a, b) => a.name.localeCompare(b.name))
     const cats = RATING_KEYS.map((k) => {
       const v = list.map((d) => d.ratings[k]).filter((x): x is number => x !== undefined)
-      return { name: settings.ratingLabels[k], value: v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : 0, n: v.length }
+      return { name: DEFAULT_RATING_LABELS[k], value: v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : 0, n: v.length }
     }).filter((c) => c.n > 0)
     return { eps, minutes, avg, byStatus, genres, actors, platforms, top, perYear, cats, completed: list.filter((d) => d.status === 'completed').length }
-  }, [dramas, settings.ratingLabels])
+  }, [dramas])
 
   if (!dramas) return null
   if (!dramas.length)
