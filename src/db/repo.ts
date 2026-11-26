@@ -84,7 +84,8 @@ function mergeSettings(v: unknown): Settings {
   return {
     ...DEFAULT_SETTINGS,
     ...s,
-    ratingLabels: { ...DEFAULT_SETTINGS.ratingLabels, ...(s.ratingLabels ?? {}) },
+    // Kategorien gibt die App fest vor – früher umbenannte Werte werden ignoriert
+    ratingLabels: DEFAULT_SETTINGS.ratingLabels,
   }
 }
 export async function getSettings(): Promise<Settings> {

@@ -77,13 +77,10 @@ export default function Library() {
   if (dramas.length === 0)
     return (
       <Empty icon={<CoupleArt className="mx-auto w-full max-w-sm" />} title="Noch keine Dramen hier">
-        <p>Füge dein erstes K-Drama hinzu oder importiere deine bestehende Excel-Liste.</p>
+        <p>Füge dein erstes K-Drama hinzu.</p>
         <div className="mt-5 flex flex-wrap justify-center gap-2">
           <Link to="/new" className="btn-primary">
             ➕ Drama hinzufügen
-          </Link>
-          <Link to="/settings#import" className="btn-outline">
-            📥 Excel importieren
           </Link>
         </div>
       </Empty>
