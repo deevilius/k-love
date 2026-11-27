@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+## 0.5.0 – 2026-11-27
+
 - ✨ Neue Seite **Entdecken**: aktuelle K-Dramen von Netflix, Viki, Disney+ & Co., passend zu deinen Bewertungen sortiert (Genres, Schauspieler und ähnliche Dramen – je besser bewertet, desto mehr zählen sie) und mit einem Klick auf die Merkliste. Dazu ältere, bekannte Serien, die du noch nicht hast. Unter Einstellungen → Meine Streaming-Anbieter wählst du, welche Dienste du hast.
 
 ## 0.4.0 – 2026-11-27
