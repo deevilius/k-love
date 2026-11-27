@@ -11,6 +11,7 @@ import { startAutoBackup } from './lib/autoBackup'
 import { BackupReminder } from './components/BackupReminder'
 import { UpdateDialog } from './components/UpdateDialog'
 import { ErrorBoundary } from './components/ErrorBoundary'
+import { playIntroOnStartup, toggleIntroMute, useIntroEnabled, useIntroPlaying } from './lib/lofi'
 
 const NAV = [
   { to: '/', label: 'Bibliothek', icon: '📚', end: true },
@@ -21,7 +22,10 @@ const NAV = [
 
 export default function App() {
   const loc = useLocation()
+  const introPlaying = useIntroPlaying()
+  const introOn = useIntroEnabled()
   useEffect(() => {
+    playIntroOnStartup()
     // Browser bitten, die Daten dauerhaft zu speichern (nicht automatisch löschen)
     navigator.storage?.persist?.().catch(() => {})
     void db.open()
@@ -36,6 +40,15 @@ export default function App() {
           <span className="h-display text-2xl font-bold text-pink-700 dark:text-pink-300">K-Love</span>
           <span className="rounded-full bg-pink-600 px-2 py-0.5 text-[10px] font-bold tracking-wide text-white uppercase">Beta</span>
         </NavLink>
+        <div className="flex items-center gap-2">
+        <button
+          className="grid h-9 w-9 place-items-center rounded-full bg-pink-100 text-lg hover:bg-pink-200 dark:bg-white/10 dark:hover:bg-white/20"
+          onClick={toggleIntroMute}
+          title={introOn ? 'Musik stummschalten' : 'Musik einschalten'}
+          aria-label={introOn ? 'Musik stummschalten' : 'Musik einschalten'}
+        >
+          <span className={cx(introOn && introPlaying && 'animate-pulse')}>{introOn ? '🔊' : '🔇'}</span>
+        </button>
         <nav className="hidden gap-1 sm:flex">
           {NAV.map((n) => (
             <NavLink
@@ -51,6 +64,7 @@ export default function App() {
             </NavLink>
           ))}
         </nav>
+        </div>
       </header>
 
       <BackupReminder />
