@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+## 0.5.1 – 2026-11-27
+
 - 📺 Auf der Drama-Seite und in „Schaue gerade“ gibt es wieder **+1 Folge**. Nach der letzten Folge springt das Drama automatisch auf „Fertig“.
 - 🔁 **Nochmal schauen** für fertige Dramen: Der Fortschritt beginnt neu, die Rewatches zählen in der Statistik mit.
 - 💗 **Eigene Bewertungskategorien** unter Einstellungen → Bewertungskategorien: umbenennen, sortieren, neue anlegen (z. B. „Second Lead“) oder entfernen.
