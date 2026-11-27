@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 📺 Aufgeräumter Fortschritt: Auf der Drama-Seite wählst du nur noch den Status – Episodenzähler und Datumsfelder sind weg.
+
 ## 0.3.0 – 2026-11-26
 
 - 🎵 Beim Start spielt K-Love jetzt einen kurzen, leisen Lofi-Song. Stummschalten über den 🔊-Knopf oben oder unter Einstellungen → Startmusik.
