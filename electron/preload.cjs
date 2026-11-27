@@ -10,6 +10,7 @@ contextBridge.exposeInMainWorld('klove', {
   },
   youtube: {
     findOst: (title) => ipcRenderer.invoke('klove:youtube-find-ost', title),
+    playlistItems: (listId) => ipcRenderer.invoke('klove:youtube-playlist-items', listId),
   },
   update: {
     getState: () => ipcRenderer.invoke('klove:update-get-state'),

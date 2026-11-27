@@ -20,6 +20,12 @@ export interface YoutubeHit {
   title: string
 }
 
+export interface YoutubeItem {
+  id: string
+  title: string
+  channel: string
+}
+
 export interface UpdateNote {
   version: string
   /** reiner Text, Aufzählungen beginnen mit „• “ */
@@ -52,6 +58,8 @@ declare global {
       youtube: {
         /** Erste passende OST-Playlist zum Drama-Titel, sonst ein OST-Video */
         findOst(title: string): Promise<YoutubeHit | null>
+        /** Die ersten (max. 25) Videos einer Playlist */
+        playlistItems(listId: string): Promise<YoutubeItem[]>
       }
       update: {
         getState(): Promise<UpdateState>

@@ -12,7 +12,7 @@ const toJson = (b: Backup) => JSON.stringify(b, null, 2)
 /** Prüfsumme über die Nutzdaten – ohne Zeitstempel und Sicherungs-Metadaten */
 function contentHash(b: Backup): string {
   const { lastBackupAt: _a, lastAutoBackupHash: _b, backupReminderSnoozedUntil: _c, ...settings } = b.settings
-  const s = JSON.stringify([b.dramas, b.songs, settings])
+  const s = JSON.stringify([b.dramas, b.songs, b.playlists ?? [], settings])
   let h = 5381
   for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0
   return `${s.length.toString(36)}-${(h >>> 0).toString(36)}`
@@ -89,10 +89,10 @@ export function startAutoBackup(): () => void {
   }
   const first = setTimeout(tick, FIRST_DELAY)
   const timer = setInterval(tick, INTERVAL)
-  // Bei jeder Änderung an Dramen oder Songs entprellt speichern (erste Meldung = Startzustand, überspringen)
+  // Bei jeder Änderung an Dramen, Songs oder Playlists entprellt speichern (erste Meldung = Startzustand, überspringen)
   let debounce: ReturnType<typeof setTimeout> | undefined
   let initial = true
-  const sub = liveQuery(() => Promise.all([db.dramas.toArray(), db.songs.toArray()])).subscribe(() => {
+  const sub = liveQuery(() => Promise.all([db.dramas.toArray(), db.songs.toArray(), db.playlists.toArray()])).subscribe(() => {
     if (initial) return void (initial = false)
     clearTimeout(debounce)
     debounce = setTimeout(tick, AFTER_CHANGE)

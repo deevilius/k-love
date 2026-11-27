@@ -62,6 +62,15 @@ export interface Song {
   order: number
 }
 
+/** Eigene Playlist aus einzelnen (YouTube-)Songs */
+export interface Playlist {
+  id: string
+  name: string
+  songIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Settings {
   lastBackupAt?: string
   /** Prüfsumme der letzten automatischen Sicherung – unveränderte Daten werden nicht erneut gesichert */

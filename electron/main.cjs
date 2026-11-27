@@ -56,6 +56,7 @@ function start() {
     hasProfile: listFiles(readConfig().dir).some((f) => f.kind === 'profile'),
   }))
   ipcMain.handle('klove:youtube-find-ost', (_e, title) => findYoutubeOst(title))
+  ipcMain.handle('klove:youtube-playlist-items', (_e, listId) => youtubePlaylistItems(listId))
   setupAdblock()
   setupBackup()
 
@@ -137,13 +138,29 @@ function setupAdblock() {
 
 const OST_RE = /\bost\b|soundtrack|사운드트랙/i
 
-async function youtubeResults(query, filter) {
-  const url = `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}${filter ? `&sp=${filter}` : ''}`
-  const res = await net.fetch(url, { headers: { 'Accept-Language': 'en-US,en;q=0.9' } })
+// Eigene Sitzung nur für diese Abfragen: Ohne Antwort auf die Cookie-Abfrage zeigt YouTube in der EU
+// statt Playlists die Seite „Before you continue“. SOCS=CAI = nur notwendige Cookies.
+let ytSession = null
+async function youtubeSession() {
+  if (!ytSession) {
+    const ses = session.fromPartition('klove-youtube-search')
+    await ses.cookies.set({ url: 'https://www.youtube.com', domain: '.youtube.com', name: 'SOCS', value: 'CAI', secure: true, expirationDate: Date.now() / 1000 + 365 * 24 * 3600 })
+    ytSession = ses
+  }
+  return ytSession
+}
+
+/** Liest die Seitendaten (ytInitialData) einer YouTube-Seite */
+async function youtubeData(url) {
+  const ses = await youtubeSession()
+  const res = await ses.fetch(url, { headers: { 'Accept-Language': 'en-US,en;q=0.9' }, credentials: 'include' })
   if (!res.ok) return null
   const m = (await res.text()).match(/ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s)
   return m ? JSON.parse(m[1]) : null
 }
+
+const youtubeResults = (query, filter) =>
+  youtubeData(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}${filter ? `&sp=${filter}` : ''}`)
 
 const ytText = (t) => t?.simpleText ?? t?.runs?.map((r) => r.text).join('') ?? t?.content ?? ''
 
@@ -188,6 +205,29 @@ async function findYoutubeOst(title) {
     return collect(await youtubeResults(query), pickVideo).find(fits) ?? null
   } catch {
     return null
+  }
+}
+
+const pickPlaylistVideo = (n) => {
+  const r = n.playlistVideoRenderer
+  if (r?.videoId) return { id: r.videoId, title: ytText(r.title), channel: ytText(r.shortBylineText) }
+  const l = n.lockupViewModel
+  if (l?.contentId && l.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO') {
+    const md = l.metadata?.lockupMetadataViewModel
+    return { id: l.contentId, title: ytText(md?.title), channel: ytText(md?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text) }
+  }
+  return null
+}
+
+/** Die ersten Videos einer YouTube-Playlist ({ id, title, channel }[]), bei Fehlern [] */
+async function youtubePlaylistItems(listId, max = 25) {
+  if (typeof listId !== 'string' || !/^[\w-]{10,64}$/.test(listId)) return []
+  try {
+    const items = collect(await youtubeData(`https://www.youtube.com/playlist?list=${listId}`), pickPlaylistVideo)
+    const seen = new Set()
+    return items.filter((v) => v.title && !seen.has(v.id) && seen.add(v.id)).slice(0, max)
+  } catch {
+    return []
   }
 }
 

@@ -5,6 +5,9 @@ import DramaDetail from './pages/DramaDetail'
 import DramaForm from './pages/DramaForm'
 const Stats = lazy(() => import('./pages/Stats'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
+const Music = lazy(() => import('./pages/Music'))
+import { MiniPlayer } from './components/MiniPlayer'
+import { usePlayer } from './lib/player'
 import { cx } from './lib/util'
 import { db } from './db/db'
 import { startAutoBackup } from './lib/autoBackup'
@@ -16,6 +19,7 @@ import { playIntroOnStartup, toggleIntroMute, useIntroEnabled, useIntroPlaying }
 const NAV = [
   { to: '/', label: 'Bibliothek', icon: '📚', end: true },
   { to: '/new', label: 'Hinzufügen', icon: '➕', end: false },
+  { to: '/music', label: 'Musik', icon: '🎵', end: false },
   { to: '/stats', label: 'Statistik', icon: '📊', end: false },
   { to: '/settings', label: 'Einstellungen', icon: '⚙️', end: false },
 ]
@@ -24,6 +28,7 @@ export default function App() {
   const loc = useLocation()
   const introPlaying = useIntroPlaying()
   const introOn = useIntroEnabled()
+  const playerActive = usePlayer().queue.length > 0
   useEffect(() => {
     playIntroOnStartup()
     // Browser bitten, die Daten dauerhaft zu speichern (nicht automatisch löschen)
@@ -33,7 +38,7 @@ export default function App() {
   }, [])
 
   return (
-    <div className="mx-auto flex min-h-dvh max-w-6xl flex-col px-4 pb-24 sm:px-6 sm:pb-10">
+    <div className={cx('mx-auto flex min-h-dvh max-w-6xl flex-col px-4 sm:px-6', playerActive ? 'pb-48 sm:pb-28' : 'pb-24 sm:pb-10')}>
       <header className="sticky top-0 z-30 -mx-4 mb-4 flex items-center justify-between border-b border-rose-100/70 bg-rose-50/80 px-4 py-3 backdrop-blur sm:-mx-6 sm:px-6 dark:border-white/5 dark:bg-[#1a1220]/80">
         <NavLink to="/" className="flex items-center gap-2">
           <img src="/icon.svg" alt="" className="h-9 w-9" />
@@ -79,6 +84,8 @@ export default function App() {
           <Route path="/new" element={<DramaForm />} />
           <Route path="/drama/:id" element={<DramaDetail />} />
           <Route path="/drama/:id/edit" element={<DramaForm />} />
+          <Route path="/music" element={<Music />} />
+          <Route path="/music/:playlistId" element={<Music />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
@@ -86,8 +93,11 @@ export default function App() {
         </ErrorBoundary>
       </main>
 
+      {/* außerhalb der Routen: Musik läuft beim Seitenwechsel weiter */}
+      <MiniPlayer />
+
       {/* Untere Navigation fürs Smartphone */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-4 border-t border-rose-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#1a1220]/90">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-rose-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#1a1220]/90">
         {NAV.map((n) => (
           <NavLink
             key={n.to}

@@ -4,7 +4,7 @@
  */
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from './db'
-import { DEFAULT_SETTINGS, type Drama, type Settings, type Song } from '../types'
+import { DEFAULT_SETTINGS, type Drama, type Playlist, type Settings, type Song } from '../types'
 
 export const newId = () => crypto.randomUUID()
 const now = () => new Date().toISOString()
@@ -42,8 +42,10 @@ export async function updateDrama(id: string, changes: Partial<Drama>) {
 }
 
 export async function deleteDrama(id: string) {
-  await db.transaction('rw', db.dramas, db.songs, async () => {
-    await db.songs.where('dramaId').equals(id).delete()
+  await db.transaction('rw', db.dramas, db.songs, db.playlists, async () => {
+    const songIds = await db.songs.where('dramaId').equals(id).primaryKeys()
+    await db.songs.bulkDelete(songIds)
+    await removeFromAllPlaylists(songIds)
     await db.dramas.delete(id)
   })
 }
@@ -61,7 +63,12 @@ export async function addSong(song: Omit<Song, 'id' | 'order'>) {
   await db.songs.add({ ...song, id: newId(), order: count })
 }
 export const updateSong = (id: string, changes: Partial<Song>) => db.songs.update(id, changes)
-export const deleteSong = (id: string) => db.songs.delete(id)
+export async function deleteSong(id: string) {
+  await db.transaction('rw', db.songs, db.playlists, async () => {
+    await db.songs.delete(id)
+    await removeFromAllPlaylists([id])
+  })
+}
 
 export async function moveSong(dramaId: string, id: string, dir: -1 | 1) {
   const list = await db.songs.where('dramaId').equals(dramaId).sortBy('order')
@@ -72,6 +79,58 @@ export async function moveSong(dramaId: string, id: string, dir: -1 | 1) {
   await db.transaction('rw', db.songs, async () => {
     await Promise.all(list.map((s, idx) => db.songs.update(s.id, { order: idx })))
   })
+}
+
+// ---------- Eigene Playlists ----------
+export const usePlaylists = () => useLiveQuery(() => db.playlists.orderBy('name').toArray(), [])
+
+export async function createPlaylist(name: string, songIds: string[] = []) {
+  const t = now()
+  const p: Playlist = { id: newId(), name: name.trim() || 'Neue Playlist', songIds: [...new Set(songIds)], createdAt: t, updatedAt: t }
+  await db.playlists.add(p)
+  return p.id
+}
+
+export const renamePlaylist = (id: string, name: string) => db.playlists.update(id, { name: name.trim() || 'Playlist', updatedAt: now() })
+export const deletePlaylist = (id: string) => db.playlists.delete(id)
+
+async function editPlaylist(id: string, fn: (songIds: string[]) => string[]) {
+  await db.transaction('rw', db.playlists, async () => {
+    const p = await db.playlists.get(id)
+    if (p) await db.playlists.update(id, { songIds: fn([...p.songIds]), updatedAt: now() })
+  })
+}
+
+/** Fügt Songs am Ende hinzu (Songs, die schon drin sind, werden übersprungen). Liefert die Anzahl neuer Songs. */
+export async function addToPlaylist(id: string, songIds: string[]) {
+  let added = 0
+  await editPlaylist(id, (list) => {
+    const have = new Set(list)
+    const fresh = [...new Set(songIds)].filter((s) => !have.has(s))
+    added = fresh.length
+    return [...list, ...fresh]
+  })
+  return added
+}
+export const removeFromPlaylist = (id: string, index: number) => editPlaylist(id, (list) => list.filter((_, i) => i !== index))
+export const movePlaylistItem = (id: string, index: number, dir: -1 | 1) =>
+  editPlaylist(id, (list) => {
+    const j = index + dir
+    if (j < 0 || j >= list.length) return list
+    ;[list[index], list[j]] = [list[j], list[index]]
+    return list
+  })
+
+/** Gelöschte Songs aus allen Playlists entfernen (nur innerhalb einer Transaktion mit db.playlists aufrufen) */
+async function removeFromAllPlaylists(songIds: string[]) {
+  if (!songIds.length) return
+  const gone = new Set(songIds)
+  await db.playlists
+    .filter((p) => p.songIds.some((s) => gone.has(s)))
+    .modify((p) => {
+      p.songIds = p.songIds.filter((s) => !gone.has(s))
+      p.updatedAt = now()
+    })
 }
 
 // ---------- Einstellungen ----------
@@ -98,6 +157,8 @@ export interface Backup {
   exportedAt: string
   dramas: Drama[]
   songs: Song[]
+  /** seit dem Musik-Modul; ältere Sicherungen haben keine */
+  playlists?: Playlist[]
   settings: Settings
 }
 
@@ -108,6 +169,7 @@ export async function exportBackup(): Promise<Backup> {
     exportedAt: now(),
     dramas: await db.dramas.toArray(),
     songs: await db.songs.toArray(),
+    playlists: await db.playlists.toArray(),
     settings: await getSettings(),
   }
 }
@@ -120,7 +182,9 @@ export function validateBackup(raw: unknown): Backup {
   if (!Array.isArray(b.dramas)) throw new Error('Die Sicherung enthält keine Dramenliste.')
   if (b.dramas.some((d) => !d || typeof d.id !== 'string' || typeof d.title !== 'string')) throw new Error('Die Sicherung enthält beschädigte Einträge.')
   if (b.songs !== undefined && !Array.isArray(b.songs)) throw new Error('Die Songliste in der Sicherung ist beschädigt.')
-  return { ...b, songs: b.songs ?? [] } as Backup
+  if (b.playlists !== undefined && (!Array.isArray(b.playlists) || b.playlists.some((p) => !p || typeof p.id !== 'string' || !Array.isArray(p.songIds))))
+    throw new Error('Die Playlists in der Sicherung sind beschädigt.')
+  return { ...b, songs: b.songs ?? [], playlists: b.playlists ?? [] } as Backup
 }
 
 export interface RestoreResult {
@@ -128,6 +192,7 @@ export interface RestoreResult {
   updated: number
   skipped: number
   songsAdded: number
+  playlistsAdded: number
 }
 
 const UNDO_KEY = 'undoSnapshot'
@@ -140,14 +205,18 @@ const UNDO_KEY = 'undoSnapshot'
 export async function restoreBackup(b: Backup, mode: 'replace' | 'merge'): Promise<RestoreResult> {
   validateBackup(b)
   const snapshot = await exportBackup()
-  const res: RestoreResult = { added: 0, updated: 0, skipped: 0, songsAdded: 0 }
-  await db.transaction('rw', db.dramas, db.songs, db.kv, async () => {
+  const res: RestoreResult = { added: 0, updated: 0, skipped: 0, songsAdded: 0, playlistsAdded: 0 }
+  const playlists = b.playlists ?? []
+  await db.transaction('rw', db.dramas, db.songs, db.playlists, db.kv, async () => {
     await db.kv.put({ key: UNDO_KEY, value: snapshot })
     if (mode === 'replace') {
       await db.dramas.clear()
       await db.songs.clear()
+      await db.playlists.clear()
       await db.dramas.bulkPut(b.dramas)
       await db.songs.bulkPut(b.songs)
+      await db.playlists.bulkPut(playlists)
+      res.playlistsAdded = playlists.length
       // Zeitpunkt der letzten Sicherung dieses Geräts behalten
       if (b.settings) await db.kv.put({ key: 'settings', value: { ...b.settings, lastBackupAt: snapshot.settings.lastBackupAt, lastAutoBackupHash: undefined } })
       res.added = b.dramas.length
@@ -171,6 +240,14 @@ export async function restoreBackup(b: Backup, mode: 'replace' | 'merge'): Promi
     const newSongs = b.songs.filter((s) => !songIds.has(s.id))
     await db.songs.bulkAdd(newSongs)
     res.songsAdded = newSongs.length
+    // Playlists: fehlende ergänzen, vorhandene nur, wenn die Sicherung neuer ist
+    const localPl = new Map((snapshot.playlists ?? []).map((p) => [p.id, p]))
+    const putPl = playlists.filter((p) => {
+      const cur = localPl.get(p.id)
+      if (!cur) res.playlistsAdded++
+      return !cur || (p.updatedAt ?? '') > (cur.updatedAt ?? '')
+    })
+    await db.playlists.bulkPut(putPl)
   })
   return res
 }
@@ -181,11 +258,13 @@ export const useUndoSnapshot = () => useLiveQuery(async () => ((await db.kv.get(
 export async function undoRestore() {
   const snap = (await db.kv.get(UNDO_KEY))?.value as Backup | undefined
   if (!snap) throw new Error('Nichts zum Rückgängigmachen vorhanden.')
-  await db.transaction('rw', db.dramas, db.songs, db.kv, async () => {
+  await db.transaction('rw', db.dramas, db.songs, db.playlists, db.kv, async () => {
     await db.dramas.clear()
     await db.songs.clear()
+    await db.playlists.clear()
     await db.dramas.bulkPut(snap.dramas)
     await db.songs.bulkPut(snap.songs)
+    await db.playlists.bulkPut(snap.playlists ?? [])
     await db.kv.put({ key: 'settings', value: snap.settings })
     await db.kv.delete(UNDO_KEY)
   })
