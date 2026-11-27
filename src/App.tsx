@@ -7,6 +7,7 @@ const Stats = lazy(() => import('./pages/Stats'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const Music = lazy(() => import('./pages/Music'))
 const Discover = lazy(() => import('./pages/Discover'))
+const Hangul = lazy(() => import('./pages/Hangul'))
 import { MiniPlayer } from './components/MiniPlayer'
 import { getPlayer, togglePlay, usePlayer } from './lib/player'
 import { DialogHost } from './components/Dialogs'
@@ -23,6 +24,7 @@ const NAV = [
   { to: '/discover', label: 'Entdecken', icon: '✨', end: false },
   { to: '/new', label: 'Hinzufügen', icon: '➕', end: false },
   { to: '/music', label: 'Musik', icon: '🎵', end: false },
+  { to: '/hangul', label: 'Koreanisch', icon: '한', end: false },
   { to: '/stats', label: 'Statistik', icon: '📊', end: false },
   { to: '/settings', label: 'Einstellungen', icon: '⚙️', end: false },
 ]
@@ -33,7 +35,7 @@ const isTyping = (t: EventTarget | null) =>
 
 /**
  * Tastenkürzel (auch unter Einstellungen → Tastenkürzel aufgelistet):
- * Strg+F Suche, Strg+N neues Drama, Leertaste Musik an/aus, Alt+1…6 Seiten
+ * Strg+F Suche, Strg+N neues Drama, Leertaste Musik an/aus, Alt+1…7 Seiten
  */
 function useShortcuts() {
   const nav = useNavigate()
@@ -50,7 +52,7 @@ function useShortcuts() {
       } else if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'n') {
         e.preventDefault()
         nav('/new')
-      } else if (e.altKey && !ctrl && /^[1-6]$/.test(e.key)) {
+      } else if (e.altKey && !ctrl && /^[1-7]$/.test(e.key)) {
         e.preventDefault()
         nav(NAV[Number(e.key) - 1].to)
       } else if (e.key === ' ' && !ctrl && !e.altKey && !isTyping(e.target) && getPlayer().queue.length) {
@@ -107,7 +109,7 @@ export default function App() {
               }
             >
               <span aria-hidden>{n.icon}</span>
-              <span className="hidden lg:inline">{n.label}</span>
+              <span className="hidden xl:inline">{n.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -130,6 +132,7 @@ export default function App() {
           <Route path="/discover" element={<Discover />} />
           <Route path="/music" element={<Music />} />
           <Route path="/music/:playlistId" element={<Music />} />
+          <Route path="/hangul" element={<Hangul />} />
           <Route path="/stats" element={<Stats />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Routes>
@@ -141,7 +144,7 @@ export default function App() {
       <MiniPlayer />
 
       {/* Untere Navigation fürs Smartphone */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-rose-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#1a1220]/90">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-7 border-t border-rose-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#1a1220]/90">
         {NAV.map((n) => (
           <NavLink
             key={n.to}

@@ -1,3 +1,5 @@
+import type { HangulProgress } from './lib/hangul'
+
 export type WatchStatus = 'watchlist' | 'watching' | 'completed' | 'on-hold' | 'dropped'
 
 export const STATUS_LABELS: Record<WatchStatus, string> = {
@@ -110,6 +112,8 @@ export interface Settings {
   streamingProviders?: string[]
   /** Eigene Bewertungskategorien (leer = die fünf Standards) */
   ratingCategories?: RatingCategory[]
+  /** Lernstand im Hangul-Trainer */
+  hangul?: HangulProgress
 }
 
 export const DEFAULT_SETTINGS: Settings = {}

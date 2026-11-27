@@ -4,6 +4,9 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 한 Neue Seite **Koreanisch**: ein Hangul-Trainer in zehn Stufen – von den ersten Vokalen über Silbenblöcke bis zu echten Drama-Wörtern (사랑해, 대박 …) und koreanischen Titeln deiner eigenen Dramen. Kurze Runden mit zehn Fragen, schwache Zeichen kommen öfter dran, dazu eine Hangul-Tafel und „Tage in Folge“. Mit installierter koreanischer Windows-Stimme hörst du auch die Aussprache.
+- ⌨️ Die neue Seite liegt auf Alt+5, Statistik und Einstellungen rücken auf Alt+6 und Alt+7.
+
 ## 0.5.1 – 2026-11-27
 
 - 📺 Auf der Drama-Seite und in „Schaue gerade“ gibt es wieder **+1 Folge**. Nach der letzten Folge springt das Drama automatisch auf „Fertig“.
