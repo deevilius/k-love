@@ -113,7 +113,8 @@ function createWindow() {
 // geladen und installiert wird erst nach „Jetzt aktualisieren“.
 let autoUpdater = null
 let updateState = { status: 'idle' }
-const FAKE = !app.isPackaged && process.env.KLOVE_FAKE_UPDATE === '1'
+// KLOVE_FAKE_UPDATE=1 → erfundenes Update 9.9.9; =old → tut so, als wäre 0.1.0 installiert, und lädt die echten Notizen nach
+const FAKE = !app.isPackaged && ['1', 'old'].includes(process.env.KLOVE_FAKE_UPDATE) ? process.env.KLOVE_FAKE_UPDATE : false
 
 function setUpdateState(patch) {
   updateState = { ...updateState, ...patch }
@@ -157,11 +158,42 @@ function compareVersions(a, b) {
 
 function onUpdateAvailable(info) {
   if (updateState.status === 'downloading' || updateState.status === 'ready') return
-  setUpdateState({ status: 'available', version: info.version, releaseDate: info.releaseDate, notes: normalizeNotes(info), percent: 0, message: undefined })
+  const notes = normalizeNotes(info)
+  setUpdateState({ status: 'available', version: info.version, releaseDate: info.releaseDate, notes, notesIncomplete: false, percent: 0, message: undefined })
+  // GitHubs Release-Feed enthält nur die letzten 10 Releases. Ist er voll, fehlen bei großen Sprüngen ältere Versionen.
+  if (notes.length >= FEED_LIMIT) void completeNotes(info.version, notes)
+}
+
+const GH_REPO = 'deevilius/k-love'
+const FEED_LIMIT = FAKE === 'old' ? 1 : 10
+const currentVersion = () => (FAKE === 'old' ? '0.1.0' : app.getVersion())
+
+/** Fehlende ältere Release-Notizen über die GitHub-API nachladen (ohne Anmeldung, 60 Abrufe/Stunde reichen) */
+async function completeNotes(latest, notes) {
+  const current = currentVersion()
+  const have = new Set(notes.map((n) => n.version))
+  try {
+    const res = await net.fetch(`https://api.github.com/repos/${GH_REPO}/releases?per_page=100`, { headers: { Accept: 'application/vnd.github+json' } })
+    if (!res.ok) throw new Error(`GitHub antwortet mit ${res.status}`)
+    const releases = await res.json()
+    const extra = releases
+      .filter((r) => !r.draft && !r.prerelease)
+      .map((r) => ({ version: String(r.tag_name).replace(/^v/, ''), text: htmlToText(r.body) }))
+      // have wächst mit, damit doppelte Releases desselben Tags nur einmal erscheinen
+      .filter((n) => /^\d+\.\d+\.\d+$/.test(n.version) && !have.has(n.version) && have.add(n.version))
+      .filter((n) => compareVersions(n.version, current) > 0 && compareVersions(n.version, latest) <= 0)
+    if (updateState.version !== latest) return // inzwischen ist ein anderes Update gemeldet
+    const all = [...notes, ...extra].sort((a, b) => compareVersions(b.version, a.version))
+    // Bei 100 Releases kann auch die API-Seite voll sein
+    setUpdateState({ notes: all, notesIncomplete: releases.length >= 100 })
+  } catch (e) {
+    console.error('Ältere Release-Notizen nicht geladen:', e?.message ?? e)
+    if (updateState.version === latest) setUpdateState({ notesIncomplete: true })
+  }
 }
 
 function setupUpdater() {
-  ipcMain.handle('klove:update-get-state', () => ({ ...updateState, currentVersion: app.getVersion() }))
+  ipcMain.handle('klove:update-get-state', () => ({ ...updateState, currentVersion: currentVersion() }))
   ipcMain.handle('klove:update-download', () => downloadUpdate())
   ipcMain.handle('klove:update-install', () => installUpdate())
 
@@ -194,6 +226,14 @@ function setupUpdater() {
 }
 
 async function checkForUpdates(_manual) {
+  if (FAKE === 'old') {
+    onUpdateAvailable({
+      version: app.getVersion(),
+      releaseDate: new Date().toISOString(),
+      releaseNotes: [{ version: app.getVersion(), note: '<p>Nur dieser Eintrag kam aus dem Feed, die älteren werden nachgeladen.</p>' }],
+    })
+    return { status: 'available', version: app.getVersion() }
+  }
   if (FAKE) {
     onUpdateAvailable({
       version: '9.9.9',

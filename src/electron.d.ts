@@ -26,6 +26,8 @@ export interface UpdateState {
   releaseDate?: string
   /** alle Versionen seit der installierten, neueste zuerst */
   notes?: UpdateNote[]
+  /** true, wenn ältere Versionen fehlen könnten (GitHub nicht erreichbar oder sehr viele Releases) */
+  notesIncomplete?: boolean
   percent?: number
   message?: string
 }
