@@ -4,6 +4,11 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 🧭 Aufgeräumtes Menü: oben nur noch Bibliothek, Entdecken, Musik und Koreanisch – jetzt auch auf kleineren Fenstern mit Text. **➕ Hinzufügen** ist ein eigener Knopf, Statistik und Einstellungen findest du unter **⋯**.
+- 📱 Auf dem Handy hat die untere Leiste nur noch fünf Felder: Bibliothek, Entdecken, ➕ in der Mitte, Musik und **Mehr** (Koreanisch, Statistik, Einstellungen).
+- 📚 Ruhigere Startseite: kleinere Begrüßung, Suche und Filter in einer Leiste, die beim Scrollen oben bleibt. Favoriten, Genre und Plattform stecken jetzt unter **Filter** – die Zahl am Knopf zeigt, wie viele aktiv sind. Bei aktiven Filtern siehst du „X von Y Dramen“, auf großen Bildschirmen passen sechs Poster in eine Reihe.
+- ⌨️ Alt+1…6 führen jetzt zu Bibliothek, Entdecken, Musik, Koreanisch, Statistik und Einstellungen. Hinzufügen bleibt Strg+N.
+
 ## 0.6.0 – 2026-11-27
 
 - 한 Neue Seite **Koreanisch**: ein Hangul-Trainer in zehn Stufen – von den ersten Vokalen über Silbenblöcke bis zu echten Drama-Wörtern (사랑해, 대박 …) und koreanischen Titeln deiner eigenen Dramen. Kurze Runden mit zehn Fragen, schwache Zeichen kommen öfter dran, dazu eine Hangul-Tafel und „Tage in Folge“. Mit installierter koreanischer Windows-Stimme hörst du auch die Aussprache.
