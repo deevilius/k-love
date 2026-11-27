@@ -6,6 +6,7 @@ import DramaForm from './pages/DramaForm'
 const Stats = lazy(() => import('./pages/Stats'))
 const SettingsPage = lazy(() => import('./pages/Settings'))
 const Music = lazy(() => import('./pages/Music'))
+const Discover = lazy(() => import('./pages/Discover'))
 import { MiniPlayer } from './components/MiniPlayer'
 import { usePlayer } from './lib/player'
 import { cx } from './lib/util'
@@ -18,6 +19,7 @@ import { playIntroOnStartup, toggleIntroMute, useIntroEnabled, useIntroPlaying }
 
 const NAV = [
   { to: '/', label: 'Bibliothek', icon: '📚', end: true },
+  { to: '/discover', label: 'Entdecken', icon: '✨', end: false },
   { to: '/new', label: 'Hinzufügen', icon: '➕', end: false },
   { to: '/music', label: 'Musik', icon: '🎵', end: false },
   { to: '/stats', label: 'Statistik', icon: '📊', end: false },
@@ -60,12 +62,14 @@ export default function App() {
               key={n.to}
               to={n.to}
               end={n.end}
+              title={n.label}
+              aria-label={n.label}
               className={({ isActive }) =>
                 cx('btn', isActive ? 'bg-pink-600 text-white' : 'text-stone-600 hover:bg-rose-100 dark:text-rose-100 dark:hover:bg-white/10')
               }
             >
               <span aria-hidden>{n.icon}</span>
-              {n.label}
+              <span className="hidden lg:inline">{n.label}</span>
             </NavLink>
           ))}
         </nav>
@@ -84,6 +88,7 @@ export default function App() {
           <Route path="/new" element={<DramaForm />} />
           <Route path="/drama/:id" element={<DramaDetail />} />
           <Route path="/drama/:id/edit" element={<DramaForm />} />
+          <Route path="/discover" element={<Discover />} />
           <Route path="/music" element={<Music />} />
           <Route path="/music/:playlistId" element={<Music />} />
           <Route path="/stats" element={<Stats />} />
@@ -97,7 +102,7 @@ export default function App() {
       <MiniPlayer />
 
       {/* Untere Navigation fürs Smartphone */}
-      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-rose-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#1a1220]/90">
+      <nav className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-rose-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur sm:hidden dark:border-white/10 dark:bg-[#1a1220]/90">
         {NAV.map((n) => (
           <NavLink
             key={n.to}

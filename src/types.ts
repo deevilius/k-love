@@ -85,8 +85,13 @@ export interface Settings {
   skippedUpdateVersion?: string
   /** Beim Speichern automatisch eine OST von YouTube hinterlegen (leer = an) */
   autoOst?: boolean
+  /** Eigene Streaming-Anbieter für die Entdecken-Seite (leer = alle) */
+  streamingProviders?: string[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {}
 
 export const PLATFORMS = ['Netflix', 'Viki', 'Disney+', 'Prime Video', 'Apple TV+', 'Crunchyroll', 'Kocowa', 'Sonstiges']
+
+/** Zur Auswahl unter Einstellungen → Meine Streaming-Anbieter */
+export const STREAMING_PROVIDERS = PLATFORMS.filter((p) => p !== 'Sonstiges')
