@@ -70,6 +70,8 @@ export interface Settings {
   backupReminderSnoozedUntil?: string
   /** Update-Hinweis bis zu diesem Zeitpunkt nicht von selbst zeigen */
   updateSnoozedUntil?: string
+  /** Für diese Version gilt das „später“ – eine neuere Version wird sofort angezeigt */
+  updateSnoozedVersion?: string
   /** Diese Update-Version wurde übersprungen */
   skippedUpdateVersion?: string
 }

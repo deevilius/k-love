@@ -4,6 +4,7 @@ import { saveSettings, useSettings } from '../db/repo'
 import type { UpdateState } from '../electron'
 
 const DAY = 86400000
+const CHANGELOG_URL = 'https://github.com/deevilius/k-love/blob/main/CHANGELOG.md'
 
 /** Aktueller Update-Zustand aus dem Hauptprozess */
 export function useUpdateState(): UpdateState {
@@ -50,23 +51,27 @@ export function UpdateDialog() {
   const api = window.klove?.update
   if (!api || state.status === 'idle' || !state.version) return null
 
-  const snoozed = settings.updateSnoozedUntil && new Date(settings.updateSnoozedUntil).getTime() > Date.now()
+  // Ohne gespeicherte Version (ältere K-Love-Versionen) gilt das „später“ weiter für jedes Update
+  const snoozed =
+    settings.updateSnoozedUntil &&
+    new Date(settings.updateSnoozedUntil).getTime() > Date.now() &&
+    (!settings.updateSnoozedVersion || settings.updateSnoozedVersion === state.version)
   const skipped = settings.skippedUpdateVersion === state.version
   const busy = state.status === 'downloading' || (state.status === 'ready' && accepted.current)
   if (!forced && !busy && state.status !== 'ready' && (snoozed || skipped)) return null
 
   const close = () => setForced(false)
   const later = async (days: number) => {
-    await saveSettings({ updateSnoozedUntil: new Date(Date.now() + days * DAY).toISOString() })
+    await saveSettings({ updateSnoozedUntil: new Date(Date.now() + days * DAY).toISOString(), updateSnoozedVersion: state.version })
     close()
   }
   const skip = async () => {
-    await saveSettings({ skippedUpdateVersion: state.version, updateSnoozedUntil: undefined })
+    await saveSettings({ skippedUpdateVersion: state.version, updateSnoozedUntil: undefined, updateSnoozedVersion: undefined })
     close()
   }
   const updateNow = async () => {
     accepted.current = true
-    await saveSettings({ updateSnoozedUntil: undefined, skippedUpdateVersion: undefined })
+    await saveSettings({ updateSnoozedUntil: undefined, updateSnoozedVersion: undefined, skippedUpdateVersion: undefined })
     if (state.status === 'ready') await api.install()
     else await api.download()
   }
@@ -93,6 +98,14 @@ export function UpdateDialog() {
               <p className="whitespace-pre-line">{n.text || 'Keine Beschreibung vorhanden.'}</p>
             </section>
           ))}
+          {state.notesIncomplete && (
+            <p className="text-stone-500 dark:text-rose-100/60">
+              Ältere Änderungen konnten nicht geladen werden –{' '}
+              <a className="underline" href={CHANGELOG_URL} target="_blank" rel="noreferrer">
+                vollständiger Changelog auf GitHub
+              </a>
+            </p>
+          )}
         </div>
 
         {state.status === 'downloading' && (

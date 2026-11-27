@@ -65,6 +65,12 @@ Update-Dialog testen (ohne echtes Release):
 $env:KLOVE_FAKE_UPDATE = '1'; npm run dev
 ```
 
+Großen Versionssprung testen (tut so, als wäre 0.1.0 installiert, und lädt die echten Release-Notizen von GitHub nach):
+
+```powershell
+$env:KLOVE_FAKE_UPDATE = 'old'; npm run dev
+```
+
 ## Technik
 
 Vite · React · TypeScript · Tailwind CSS 4 · Dexie (IndexedDB) · SheetJS · Recharts · Electron + electron-builder + electron-updater · GitHub Actions

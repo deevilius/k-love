@@ -4,6 +4,9 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- ✨ Wer mehrere Versionen auf einmal überspringt, sieht im Update-Dialog jetzt alle Änderungen seitdem – auch bei mehr als zehn Versionen.
+- 🔔 „Morgen erinnern“ und „In einer Woche“ gelten nur noch für die angezeigte Version. Erscheint inzwischen eine neuere, meldet sich K-Love sofort.
+
 ## 0.3.2 – 2026-11-27
 
 - ⬆️ Unter Einstellungen → Profil gibt es wieder „Aus Datei laden“: eine K-Love-Sicherung (.json) öffnen und mit deinen Dramen zusammenführen oder sie ersetzen.
