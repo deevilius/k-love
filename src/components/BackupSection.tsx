@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { discardUndoSnapshot, restoreBackup, undoRestore, useAllSongs, useDramas, useSettings, useUndoSnapshot, validateBackup, type Backup, type RestoreResult } from '../db/repo'
-import { downloadBackup, getAutoBackupError, isDesktop, onAutoBackupError, runAutoBackup, writePreRestoreCopy } from '../lib/autoBackup'
+import { getAutoBackupError, onAutoBackupError, runAutoBackup, writePreRestoreCopy } from '../lib/autoBackup'
 import type { BackupConfig } from '../electron'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
@@ -49,7 +49,6 @@ export function BackupSection() {
   const settings = useSettings()
   const undo = useUndoSnapshot()
   const flow = useRestoreFlow()
-  const desktop = isDesktop()
 
   const days = settings.lastBackupAt ? Math.floor((Date.now() - new Date(settings.lastBackupAt).getTime()) / 86400000) : null
   const when = days === 0 ? 'heute' : `vor ${days} Tag(en)`
@@ -72,12 +71,11 @@ export function BackupSection() {
           ? '⚠️ Noch nicht gesichert.'
           : days > 14
             ? `⚠️ Letzte Sicherung vor ${days} Tagen.`
-            : desktop
-              ? `✅ Wird automatisch gespeichert · zuletzt ${when}`
-              : `✅ Letzte Sicherung ${when}`}
+            : `✅ Wird automatisch gespeichert · zuletzt ${when}`}
       </p>
 
-      {desktop ? <ProfileFolder onRestore={flow.openStored} /> : <FileButtons onOpen={flow.openFile} />}
+      <ProfileFolder onRestore={flow.openStored} />
+      <LoadFileButton onOpen={flow.openFile} />
 
       {flow.result && <p className="text-sm font-semibold text-emerald-600">{flow.result}</p>}
 
@@ -100,13 +98,11 @@ export function BackupSection() {
   )
 }
 
-function FileButtons({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
+/** Eine K-Love-Sicherung (.json) von irgendwo laden, z. B. eine umgewandelte Liste oder ein Profil von einem anderen Rechner */
+function LoadFileButton({ onOpen }: { onOpen: (f: File) => Promise<void> }) {
   const fileRef = useRef<HTMLInputElement>(null)
   return (
     <div className="flex flex-wrap gap-2">
-      <button className="btn-outline" onClick={() => downloadBackup()}>
-        ⬇️ Als Datei speichern
-      </button>
       <button className="btn-outline" onClick={() => fileRef.current?.click()}>
         ⬆️ Aus Datei laden
       </button>

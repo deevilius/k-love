@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- ⬆️ Unter Einstellungen → Profil gibt es wieder „Aus Datei laden“: eine K-Love-Sicherung (.json) öffnen und mit deinen Dramen zusammenführen oder sie ersetzen.
+
 ## 0.3.1 – 2026-11-27
 
 - 📺 Aufgeräumter Fortschritt: Auf der Drama-Seite wählst du nur noch den Status – Episodenzähler und Datumsfelder sind weg.

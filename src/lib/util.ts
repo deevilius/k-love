@@ -14,22 +14,7 @@ export function fmtRating(n: number | undefined) {
   return n === undefined ? '–' : Number.isInteger(n) ? String(n) : n.toFixed(1)
 }
 
-export function downloadBlob(blob: Blob, filename: string) {
-  const a = document.createElement('a')
-  a.href = URL.createObjectURL(blob)
-  a.download = filename
-  a.click()
-  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
-}
-
 export const today = () => new Date().toISOString().slice(0, 10)
-
-export function splitList(s: string | undefined): string[] {
-  return (s ?? '')
-    .split(/[,;/|]/)
-    .map((x) => x.trim())
-    .filter(Boolean)
-}
 
 export function cx(...c: (string | false | null | undefined)[]) {
   return c.filter(Boolean).join(' ')
