@@ -35,17 +35,44 @@ const GENRE_DE: Record<string, string> = {
 
 const stripHtml = (s?: string | null) => (s ? s.replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() || undefined : undefined)
 
-interface TvmazeShow {
+export interface TvmazeShow {
   id: number
   name: string
   language?: string | null
   genres?: string[]
   premiered?: string | null
+  status?: string | null
+  type?: string | null
   averageRuntime?: number | null
+  rating?: { average?: number | null } | null
   network?: { name: string; country?: { code: string } | null } | null
   webChannel?: { name: string } | null
   image?: { medium?: string; original?: string } | null
   summary?: string | null
+}
+
+/** TVmaze-Show → Kandidat (ohne Bild ist posterUrl leer) */
+export function mapTvmazeShow(s: TvmazeShow): PosterCandidate {
+  const platform = s.webChannel?.name ?? s.network?.name
+  const posterUrl = s.image?.original ?? s.image?.medium ?? ''
+  const year = s.premiered ? Number(s.premiered.slice(0, 4)) : undefined
+  return {
+    key: `tvmaze-${s.id}`,
+    source: 'TVmaze',
+    title: s.name,
+    year,
+    posterUrl,
+    korean: s.language === 'Korean' || s.network?.country?.code === 'KR',
+    tvmazeId: s.id,
+    info: {
+      posterUrl: posterUrl || undefined,
+      year,
+      genres: (s.genres ?? []).map((g) => GENRE_DE[g] ?? g),
+      platform: platform ? normalizePlatform(platform) : undefined,
+      overview: stripHtml(s.summary),
+      episodeRuntime: s.averageRuntime ?? undefined,
+    },
+  }
 }
 
 async function searchTvmaze(q: string): Promise<PosterCandidate[]> {
@@ -55,26 +82,7 @@ async function searchTvmaze(q: string): Promise<PosterCandidate[]> {
   return data
     .map((r) => r.show)
     .filter((s) => s.image?.original || s.image?.medium)
-    .map((s) => {
-      const platform = s.webChannel?.name ?? s.network?.name
-      return {
-        key: `tvmaze-${s.id}`,
-        source: 'TVmaze' as const,
-        title: s.name,
-        year: s.premiered ? Number(s.premiered.slice(0, 4)) : undefined,
-        posterUrl: (s.image!.original ?? s.image!.medium)!,
-        korean: s.language === 'Korean' || s.network?.country?.code === 'KR',
-        tvmazeId: s.id,
-        info: {
-          posterUrl: (s.image!.original ?? s.image!.medium)!,
-          year: s.premiered ? Number(s.premiered.slice(0, 4)) : undefined,
-          genres: (s.genres ?? []).map((g) => GENRE_DE[g] ?? g),
-          platform: platform ? normalizePlatform(platform) : undefined,
-          overview: stripHtml(s.summary),
-          episodeRuntime: s.averageRuntime ?? undefined,
-        },
-      }
-    })
+    .map(mapTvmazeShow)
 }
 
 interface WikiPage {
@@ -142,7 +150,7 @@ export async function completeCandidate(c: PosterCandidate): Promise<Partial<Dra
   return c.info
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '')
+export const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9가-힣]+/g, '')
 
 /** Für das automatische Nachladen: besten Treffer wählen (Titel exakt > koreanisch > Jahr). */
 export function bestMatch(list: PosterCandidate[], title: string, year?: number): PosterCandidate | undefined {
@@ -168,7 +176,7 @@ export function bestMatch(list: PosterCandidate[], title: string, year?: number)
   return top && score(top) > 0 ? top : undefined
 }
 
-function normalizePlatform(p: string) {
+export function normalizePlatform(p: string) {
   if (/netflix/i.test(p)) return 'Netflix'
   if (/viki/i.test(p)) return 'Viki'
   if (/disney/i.test(p)) return 'Disney+'

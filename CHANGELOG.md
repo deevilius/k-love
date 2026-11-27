@@ -4,6 +4,7 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- ✨ Neue Seite **Entdecken**: aktuelle K-Dramen von Netflix, Viki, Disney+ & Co., passend zu deinen Bewertungen sortiert (Genres, Schauspieler und ähnliche Dramen – je besser bewertet, desto mehr zählen sie) und mit einem Klick auf die Merkliste. Dazu ältere, bekannte Serien, die du noch nicht hast. Unter Einstellungen → Meine Streaming-Anbieter wählst du, welche Dienste du hast.
 - 🖼️ Beim Eintragen und Bearbeiten sucht K-Love das Poster jetzt automatisch, sobald du den Titel tippst – Suchfeld und Poster-URL sind weg. Passt es nicht, blätterst du mit „🔄 Anderes Poster“ durch die Treffer.
 - 🎶 Beim Speichern hinterlegt K-Love automatisch die OST von YouTube – als einzelne Songs mit Titel und Interpret –, wenn das Drama noch keine Songs hat. Abschalten und für alle vorhandenen Dramen nachladen unter Einstellungen → OST & YouTube.
 - 🎵 Neue Seite **Musik**: alle OST-Songs deiner Dramen an einem Ort, durchsuchbar, und eigene Playlists zum Zusammenstellen, Sortieren und Abspielen – auch zufällig.

@@ -7,6 +7,8 @@ import { BackupSection } from '../components/BackupSection'
 import { openFeedback } from '../lib/diagnostics'
 import { showUpdateDialog, useUpdateState } from '../components/UpdateDialog'
 import { playIntro, setIntroEnabled, stopIntro, useIntroEnabled, useIntroPlaying } from '../lib/lofi'
+import { cx } from '../lib/util'
+import { STREAMING_PROVIDERS } from '../types'
 
 const muted = 'text-sm text-stone-600 dark:text-rose-100/70'
 
@@ -21,6 +23,7 @@ export default function SettingsPage() {
     <div className="mx-auto max-w-3xl space-y-5">
       <h1 className="h-display text-2xl font-bold">Einstellungen</h1>
       <BackupSection />
+      <StreamingSection />
       <PosterSection />
       <OstSection />
       <MusicSection />
@@ -84,6 +87,40 @@ function AppSection() {
         <button className="btn-ghost px-3 py-1 text-sm" onClick={() => openFeedback('bug')}>
           🐞 Fehler melden
         </button>
+      </div>
+    </section>
+  )
+}
+
+/** Welche Streaming-Dienste man hat – Grundlage für Entdecken */
+function StreamingSection() {
+  const chosen = useSettings().streamingProviders ?? []
+  const toggle = (p: string) =>
+    void saveSettings({ streamingProviders: chosen.includes(p) ? chosen.filter((x) => x !== p) : [...chosen, p] })
+  return (
+    <section className="card space-y-3 p-5" id="streaming">
+      <h2 className="h-display text-lg font-bold">📺 Meine Streaming-Anbieter</h2>
+      <p className={muted}>
+        Entdecken empfiehlt nur Serien, die bei diesen Anbietern laufen. Nichts ausgewählt = alle Anbieter.
+      </p>
+      <div className="flex flex-wrap gap-1.5">
+        {STREAMING_PROVIDERS.map((p) => {
+          const on = chosen.includes(p)
+          return (
+            <button
+              key={p}
+              aria-pressed={on}
+              onClick={() => toggle(p)}
+              className={cx(
+                'rounded-full px-3 py-1 text-sm font-bold transition',
+                on ? 'bg-pink-600 text-white' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-white/10 dark:text-rose-100',
+              )}
+            >
+              {on ? '✓ ' : ''}
+              {p}
+            </button>
+          )
+        })}
       </div>
     </section>
   )
