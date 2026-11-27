@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>K-Love 💗 – Meine K-Dramen</title>
-  <meta name="description" content="K-Love: kostenlose Windows-App für K-Dramen – sammeln, bewerten, neue Dramen passend zu deinem Geschmack entdecken und die OSTs als Playlists hören." />
+  <meta name="description" content="K-Love: kostenlose Windows-App für K-Dramen – sammeln, bewerten, neue Dramen entdecken, OSTs als Playlists hören und Hangul lernen. Ein privates Spaß- und Lernprojekt." />
   <meta property="og:title" content="K-Love 💗 – Meine K-Dramen" />
-  <meta property="og:description" content="K-Dramen sammeln, bewerten, entdecken und OSTs hören – kostenlos für Windows." />
+  <meta property="og:description" content="K-Dramen sammeln, bewerten, entdecken, OSTs hören und Hangul lernen – ein privates Spaß- und Lernprojekt, kostenlos für Windows." />
   <meta property="og:type" content="website" />
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -106,6 +106,15 @@
     .card ul { margin: 0.5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 0.95rem; }
     .note { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1rem 0 0; }
 
+    .hobby {
+      display: inline-flex; align-items: center; gap: 0.4rem;
+      margin: 0 0 1.25rem; padding: 0.35rem 0.9rem; border-radius: 999px;
+      border: 1px dashed var(--accent); color: var(--accent);
+      font-size: 0.9rem; font-weight: 700;
+    }
+    .card.private { border: 2px dashed var(--accent); }
+    .card.private p + p { margin-top: 0.75rem; }
+
     footer { text-align: center; padding: 2rem 1rem 3rem; color: var(--muted); font-size: 0.9rem; }
     footer a { margin: 0 0.5rem; }
   </style>
@@ -115,12 +124,13 @@
     <header class="hero">
       <img src="icon.svg" alt="" />
       <h1>K-Love 💗 <span class="badge">Beta</span></h1>
-      <p class="lead">Deine K-Dramen an einem Ort: sammeln, bewerten, neue Lieblingsserien entdecken und die schönsten OSTs hören.</p>
+      <p class="lead">Deine K-Dramen an einem Ort: sammeln, bewerten, neue Lieblingsserien entdecken, die schönsten OSTs hören – und nebenbei Hangul lernen.</p>
+      <p class="hobby">🧸 Ein privates Spaß- und Lernprojekt – kein kommerzielles Produkt</p><br />
       <a id="download" class="btn" href="https://github.com/deevilius/k-love/releases/latest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
         Für Windows herunterladen
       </a>
-      <div id="meta" class="meta">Kostenlos · Windows 10/11</div>
+      <div id="meta" class="meta">Kostenlos · Windows 10/11 · Hobbyprojekt</div>
     </header>
 
     <section>
@@ -152,19 +162,41 @@
             </ul>
           </div>
         </div>
-        <div class="card"><div class="emoji">📚</div><h3>Sammeln &amp; bewerten</h3><p>Alle Dramen mit Status, Notizen, Favoriten und Bewertung nach Story, Schauspiel, Chemie, OST und Ende.</p></div>
-        <div class="card"><div class="emoji">🖼️</div><h3>Poster automatisch</h3><p>Titel eintippen – K-Love findet Poster, Genres und Infos von selbst. Passt es nicht, blätterst du weiter.</p></div>
-        <div class="card"><div class="emoji">📊</div><h3>Statistiken</h3><p>Wie viele Folgen, welche Genres, welche Lieblingsschauspieler?</p></div>
-        <div class="card"><div class="emoji">💾</div><h3>Automatische Sicherung</h3><p>Dein Profil wird nach jeder Änderung als Datei in deinen Dokumenten gespeichert – auf Wunsch auf OneDrive.</p></div>
+        <div class="card wide">
+          <div class="emoji">한</div>
+          <div>
+            <h3>Koreanisch – Hangul lernen in kleinen Runden</h3>
+            <p>Ein Hangul-Trainer in zehn Stufen: von den ersten Vokalen über Silbenblöcke bis zu echten Drama-Wörtern wie 사랑해 oder 대박 – und den koreanischen Titeln deiner eigenen Dramen.</p>
+            <ul>
+              <li>Kurze Runden mit zehn Fragen – Zeichen, die dir schwerfallen, kommen öfter dran.</li>
+              <li>Hangul-Tafel zum Nachschlagen und „Tage in Folge“ als kleiner Ansporn.</li>
+              <li>Mit installierter koreanischer Windows-Stimme hörst du auch die Aussprache.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card"><div class="emoji">📚</div><h3>Sammeln &amp; bewerten</h3><p>Alle Dramen mit Status, Notizen und Favoriten. Bewerte mit Herzen nach Story, Schauspiel, Chemie, OST und Ende – oder nach eigenen Kategorien wie „Second Lead“.</p></div>
+        <div class="card"><div class="emoji">📺</div><h3>Folge für Folge</h3><p>Mit <strong>+1</strong> zählst du direkt mit, wo du bist. Nach der letzten Folge ist das Drama „Fertig“ – und mit „Nochmal schauen“ startest du einen Rewatch.</p></div>
+        <div class="card"><div class="emoji">🖼️</div><h3>Poster automatisch</h3><p>Titel eintippen – K-Love findet Poster, Genres und Infos von selbst und speichert die Poster auch für offline.</p></div>
+        <div class="card"><div class="emoji">🧭</div><h3>Aufgeräumt &amp; schnell</h3><p>Übersichtliches Menü, Suche und Filter in einer Leiste, auch bei vielen Dramen. Mit Tastenkürzeln wie Strg+F, Strg+N und Alt+1…6.</p></div>
+        <div class="card"><div class="emoji">📊</div><h3>Statistiken</h3><p>Wie viele Folgen pro Monat, welche Genres, welche Lieblingsschauspieler – Rewatches zählen mit.</p></div>
+        <div class="card"><div class="emoji">💾</div><h3>Automatische Sicherung</h3><p>Dein Profil wird nach jeder Änderung als Datei in deinen Dokumenten gespeichert – auf Wunsch auf OneDrive. Dazu tägliche Sicherheitskopien zum Wiederherstellen.</p></div>
         <div class="card"><div class="emoji">🔒</div><h3>Deine Daten bleiben bei dir</h3><p>Kein Konto, keine Anmeldung, kein Abo. Alles liegt auf deinem PC.</p></div>
         <div class="card"><div class="emoji">🎧</div><h3>Mit Liebe gemacht</h3><p>Ein kurzer Lofi-Song zum Start – stummschaltbar mit einem Klick.</p></div>
       </div>
     </section>
 
     <section class="narrow">
+      <h2>Ein privates Spaß- und Lernprojekt 🧸</h2>
+      <div class="card private">
+        <p>K-Love ist ein reines Hobby: entstanden aus Liebe zu K-Dramen und aus Lust am Ausprobieren und Dazulernen. Dahinter steht keine Firma und kein Geschäftsmodell – kein Verkauf, keine Werbung, keine Datensammlung.</p>
+        <p>Deshalb gibt es auch keine Garantie und keinen Support wie bei einem fertigen Produkt. Funktionen kommen, wenn Zeit und Lust da sind, und manches ist noch ein Experiment. Sichere deine Daten also ruhig ab und zu selbst.</p>
+      </div>
+    </section>
+
+    <section class="narrow">
       <h2>Beta – hilf mit 💌</h2>
       <div class="card">
-        <p>K-Love ist noch in der Beta. Wenn dir etwas auffällt oder du dir etwas wünschst: In der App unter <em>Einstellungen → Feedback senden</em> bzw. <em>Fehler melden</em> erreichst du uns direkt. Stürzt doch einmal etwas ab, bleiben deine Dramen gespeichert.</p>
+        <p>K-Love ist noch in der Beta. Wenn dir etwas auffällt oder du dir etwas wünschst: In der App unter <em>Einstellungen → Feedback senden</em> bzw. <em>Fehler melden</em> kannst du dich direkt melden. Ich freue mich über jede Rückmeldung, auch wenn ich nicht immer sofort antworten kann. Stürzt doch einmal etwas ab, bleiben deine Dramen gespeichert.</p>
       </div>
     </section>
 
@@ -187,6 +219,7 @@
   </main>
 
   <footer>
+    <p>K-Love ist ein privates, nicht-kommerzielles Spaß- und Lernprojekt.</p>
     <a href="https://github.com/deevilius/k-love">Quellcode</a> ·
     <a href="https://github.com/deevilius/k-love/blob/main/CHANGELOG.md">Changelog</a> ·
     <a href="https://github.com/deevilius/k-love/releases">Alle Versionen</a>
