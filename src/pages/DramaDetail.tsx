@@ -2,7 +2,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { deleteDrama, updateDrama, useDrama } from '../db/repo'
 import { DEFAULT_RATING_LABELS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
 import { fmtRating, overall, today } from '../lib/util'
-import { Poster, Progress, RatingHearts } from '../components/ui'
+import { Poster, RatingHearts } from '../components/ui'
 import OstSection from '../components/OstSection'
 
 export default function DramaDetail() {
@@ -26,22 +26,6 @@ export default function DramaDetail() {
     if (s === 'completed') {
       if (!d.finishedAt) changes.finishedAt = today()
       if (d.episodes) changes.currentEpisode = d.episodes
-    }
-    void update(changes)
-  }
-
-  const nextEpisode = () => {
-    const cur = (d.currentEpisode ?? 0) + 1
-    const changes: Partial<Drama> = { currentEpisode: cur }
-    if (d.status !== 'watching' && d.status !== 'completed') {
-      changes.status = 'watching'
-      if (!d.startedAt) changes.startedAt = today()
-    }
-    if (d.episodes && cur >= d.episodes) {
-      if (confirm('Letzte Episode geschafft! 🎉 Als „Fertig“ markieren?')) {
-        changes.status = 'completed'
-        changes.finishedAt = d.finishedAt ?? today()
-      }
     }
     void update(changes)
   }
@@ -122,32 +106,6 @@ export default function DramaDetail() {
                 {STATUS_LABELS[s]}
               </button>
             ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <button className="btn-outline h-10 w-10 p-0" onClick={() => update({ currentEpisode: Math.max(0, (d.currentEpisode ?? 0) - 1) })} aria-label="Episode zurück">
-              −
-            </button>
-            <div className="flex-1 text-center">
-              <div className="text-2xl font-extrabold tabular-nums">
-                {d.currentEpisode ?? 0}
-                {d.episodes ? <span className="text-base font-semibold text-stone-500"> / {d.episodes}</span> : null}
-              </div>
-              <div className="text-xs text-stone-500">Episode</div>
-            </div>
-            <button className="btn-primary h-10 px-4" onClick={nextEpisode}>
-              +1 Episode
-            </button>
-          </div>
-          <Progress drama={d} />
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <label>
-              <span className="label">Begonnen</span>
-              <input type="date" className="input" value={d.startedAt ?? ''} onChange={(e) => update({ startedAt: e.target.value || undefined })} />
-            </label>
-            <label>
-              <span className="label">Beendet</span>
-              <input type="date" className="input" value={d.finishedAt ?? ''} onChange={(e) => update({ finishedAt: e.target.value || undefined })} />
-            </label>
           </div>
         </section>
 
