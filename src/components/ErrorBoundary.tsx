@@ -21,8 +21,8 @@ export class ErrorBoundary extends Component<{ children: ReactNode }, { error: E
         <div className="text-5xl">🥲</div>
         <h1 className="h-display text-2xl font-bold">Hoppla, da ist etwas schiefgelaufen</h1>
         <p className="text-sm text-stone-600 dark:text-rose-100/70">
-          Deine Dramen sind sicher – sie sind gespeichert und in deiner Profildatei gesichert. Starte K-Love neu oder melde uns den Fehler, damit wir ihn beheben
-          können.
+          Deine Dramen sind sicher – sie sind gespeichert und in deiner Profildatei gesichert. Starte K-Love neu oder melde mir den Fehler, damit ich ihn beheben
+          kann.
         </p>
         <code className="block rounded-lg bg-rose-50 p-2 text-left text-xs break-words dark:bg-white/5">{error.message}</code>
         <div className="flex flex-wrap justify-center gap-2">

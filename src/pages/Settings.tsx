@@ -195,7 +195,7 @@ function AppSection() {
       </div>
       {msg && <p className="text-sm">{msg}</p>}
       <div className="flex flex-wrap items-center gap-3 border-t border-rose-100 pt-3 dark:border-white/10">
-        <p className="flex-1 text-sm text-stone-600 dark:text-rose-100/70">Du testest eine Beta – wir freuen uns über jede Rückmeldung! (GitHub-Konto nötig)</p>
+        <p className="flex-1 text-sm text-stone-600 dark:text-rose-100/70">Du testest eine Beta – ich freue mich über jede Rückmeldung! (GitHub-Konto nötig)</p>
         <button className="btn-outline px-3 py-1 text-sm" onClick={() => openFeedback('feedback')}>
           💬 Feedback senden
         </button>
