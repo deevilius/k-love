@@ -1,14 +1,11 @@
 import { liveQuery } from 'dexie'
 import { db } from '../db/db'
 import { exportBackup, getSettings, saveSettings, type Backup } from '../db/repo'
-import { downloadBlob } from './util'
 
 /** Profil wird kurz nach jeder Änderung geschrieben; das Intervall ist nur die Rückfallebene */
 const AFTER_CHANGE = 5 * 1000
 const INTERVAL = 5 * 60 * 1000
 const FIRST_DELAY = 10 * 1000
-
-export const isDesktop = () => !!window.klove?.backup
 
 const toJson = (b: Backup) => JSON.stringify(b, null, 2)
 
@@ -81,13 +78,6 @@ export async function writePreRestoreCopy() {
   } catch (e) {
     console.error('Kopie vor Wiederherstellung fehlgeschlagen', e)
   }
-}
-
-/** Sicherung als Datei herunterladen (Web und Desktop) */
-export async function downloadBackup() {
-  const b = await exportBackup()
-  downloadBlob(new Blob([toJson(b)], { type: 'application/json' }), `k-love-backup-${b.exportedAt.slice(0, 10)}.json`)
-  await saveSettings({ lastBackupAt: b.exportedAt })
 }
 
 /** Startet die automatische Sicherung der Desktop-App. Gibt eine Aufräumfunktion zurück. */
