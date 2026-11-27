@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+## 0.7.0 – 2026-11-27
+
 - 🧭 Aufgeräumtes Menü: oben nur noch Bibliothek, Entdecken, Musik und Koreanisch – jetzt auch auf kleineren Fenstern mit Text. **➕ Hinzufügen** ist ein eigener Knopf, Statistik und Einstellungen findest du unter **⋯**.
 - 📱 Auf dem Handy hat die untere Leiste nur noch fünf Felder: Bibliothek, Entdecken, ➕ in der Mitte, Musik und **Mehr** (Koreanisch, Statistik, Einstellungen).
 - 📚 Ruhigere Startseite: kleinere Begrüßung, Suche und Filter in einer Leiste, die beim Scrollen oben bleibt. Favoriten, Genre und Plattform stecken jetzt unter **Filter** – die Zahl am Knopf zeigt, wie viele aktiv sind. Bei aktiven Filtern siehst du „X von Y Dramen“, auf großen Bildschirmen passen sechs Poster in eine Reihe.
