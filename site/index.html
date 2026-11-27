@@ -4,9 +4,9 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>K-Love 💗 – Meine K-Dramen</title>
-  <meta name="description" content="K-Love: Windows-App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit OST-Player, Postern, Statistiken und Excel-Import." />
+  <meta name="description" content="K-Love: kostenlose Windows-App für K-Dramen – sammeln, bewerten, neue Dramen passend zu deinem Geschmack entdecken und die OSTs als Playlists hören." />
   <meta property="og:title" content="K-Love 💗 – Meine K-Dramen" />
-  <meta property="og:description" content="K-Dramen sammeln, bewerten und OSTs hören – kostenlos für Windows." />
+  <meta property="og:description" content="K-Dramen sammeln, bewerten, entdecken und OSTs hören – kostenlos für Windows." />
   <meta property="og:type" content="website" />
   <meta name="color-scheme" content="light dark" />
   <link rel="icon" href="icon.svg" type="image/svg+xml" />
@@ -94,6 +94,18 @@
     }
     .narrow { max-width: 640px; margin: 0 auto; }
 
+    .badge {
+      display: inline-block; vertical-align: middle; margin-left: 0.4rem;
+      padding: 0.15rem 0.55rem; border-radius: 999px;
+      background: var(--accent); color: #fff;
+      font-family: var(--sans); font-size: 0.75rem; font-weight: 800; letter-spacing: 0.05em; text-transform: uppercase;
+    }
+    .card.wide { grid-column: 1 / -1; display: flex; gap: 1rem; align-items: flex-start; }
+    .card.wide .emoji { font-size: 2.2rem; line-height: 1; }
+    .card.wide h3 { margin-top: 0; font-size: 1.15rem; }
+    .card ul { margin: 0.5rem 0 0; padding-left: 1.1rem; color: var(--muted); font-size: 0.95rem; }
+    .note { text-align: center; color: var(--muted); font-size: 0.9rem; margin: 1rem 0 0; }
+
     footer { text-align: center; padding: 2rem 1rem 3rem; color: var(--muted); font-size: 0.9rem; }
     footer a { margin: 0 0.5rem; }
   </style>
@@ -102,8 +114,8 @@
   <main>
     <header class="hero">
       <img src="icon.svg" alt="" />
-      <h1>K-Love 💗</h1>
-      <p class="lead">Deine K-Dramen an einem Ort: sammeln, bewerten, Fortschritt verfolgen und die schönsten OSTs hören.</p>
+      <h1>K-Love 💗 <span class="badge">Beta</span></h1>
+      <p class="lead">Deine K-Dramen an einem Ort: sammeln, bewerten, neue Lieblingsserien entdecken und die schönsten OSTs hören.</p>
       <a id="download" class="btn" href="https://github.com/deevilius/k-love/releases/latest">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="m7 10 5 5 5-5"/><path d="M5 21h14"/></svg>
         Für Windows herunterladen
@@ -114,12 +126,45 @@
     <section>
       <h2>Was K-Love kann</h2>
       <div class="grid">
-        <div class="card"><div class="emoji">📚</div><h3>Sammeln &amp; bewerten</h3><p>Alle Dramen mit Status, Folgen-Fortschritt, Notizen und Bewertung nach Story, Schauspiel, Chemie, OST und Ende.</p></div>
-        <div class="card"><div class="emoji">🎵</div><h3>OST-Player</h3><p>Lieblingssongs zu jedem Drama – direkt über YouTube oder Spotify hören.</p></div>
-        <div class="card"><div class="emoji">🖼️</div><h3>Poster</h3><p>Schöne Cover für deine Sammlung, automatisch gesucht oder selbst gewählt.</p></div>
+        <div class="card wide">
+          <div class="emoji">✨</div>
+          <div>
+            <h3>Entdecken – Empfehlungen nur für dich</h3>
+            <p>K-Love schlägt dir Dramen vor, die zu deinen Bewertungen passen – neue Serien von Netflix, Disney+, Viki &amp; Co. genauso wie ältere Klassiker, die du noch nicht kennst.</p>
+            <ul>
+              <li>Je besser du ein Drama bewertest, desto mehr zählen seine Genres und Schauspieler.</li>
+              <li>Jeder Vorschlag sagt dir, warum – z. B. „Mit Gong Yoo – aus Goblin (★ 10)“.</li>
+              <li>Du wählst, welche Streaming-Dienste du hast, und siehst nur, was du auch schauen kannst.</li>
+              <li>Ein Klick, und das Drama steht mit Poster auf deiner Merkliste.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card wide">
+          <div class="emoji">🎵</div>
+          <div>
+            <h3>Musik – deine OSTs als Playlists</h3>
+            <p>Beim Speichern eines Dramas holt K-Love automatisch die OST von YouTube – als einzelne Songs mit Titel und Interpret.</p>
+            <ul>
+              <li>Alle Songs deiner Dramen an einem Ort, durchsuchbar.</li>
+              <li>Eigene Playlists zusammenstellen, sortieren und abspielen – auch zufällig.</li>
+              <li>Mini-Player: Die Musik läuft weiter, während du durch die App blätterst.</li>
+              <li>Mit eingebautem Werbeblocker für die YouTube-Videos.</li>
+            </ul>
+          </div>
+        </div>
+        <div class="card"><div class="emoji">📚</div><h3>Sammeln &amp; bewerten</h3><p>Alle Dramen mit Status, Notizen, Favoriten und Bewertung nach Story, Schauspiel, Chemie, OST und Ende.</p></div>
+        <div class="card"><div class="emoji">🖼️</div><h3>Poster automatisch</h3><p>Titel eintippen – K-Love findet Poster, Genres und Infos von selbst. Passt es nicht, blätterst du weiter.</p></div>
         <div class="card"><div class="emoji">📊</div><h3>Statistiken</h3><p>Wie viele Folgen, welche Genres, welche Lieblingsschauspieler?</p></div>
-        <div class="card"><div class="emoji">📄</div><h3>Excel-Import &amp; -Export</h3><p>Bestehende Listen übernehmen oder alles als Tabelle mitnehmen.</p></div>
-        <div class="card"><div class="emoji">💾</div><h3>Automatische Sicherung</h3><p>Dein Profil liegt als Datei in deinen Dokumenten – auch auf OneDrive.</p></div>
+        <div class="card"><div class="emoji">💾</div><h3>Automatische Sicherung</h3><p>Dein Profil wird nach jeder Änderung als Datei in deinen Dokumenten gespeichert – auf Wunsch auf OneDrive.</p></div>
+        <div class="card"><div class="emoji">🔒</div><h3>Deine Daten bleiben bei dir</h3><p>Kein Konto, keine Anmeldung, kein Abo. Alles liegt auf deinem PC.</p></div>
+        <div class="card"><div class="emoji">🎧</div><h3>Mit Liebe gemacht</h3><p>Ein kurzer Lofi-Song zum Start – stummschaltbar mit einem Klick.</p></div>
+      </div>
+    </section>
+
+    <section class="narrow">
+      <h2>Beta – hilf mit 💌</h2>
+      <div class="card">
+        <p>K-Love ist noch in der Beta. Wenn dir etwas auffällt oder du dir etwas wünschst: In der App unter <em>Einstellungen → Feedback senden</em> bzw. <em>Fehler melden</em> erreichst du uns direkt. Stürzt doch einmal etwas ab, bleiben deine Dramen gespeichert.</p>
       </div>
     </section>
 
@@ -135,8 +180,9 @@
     <section class="narrow">
       <h2>Updates</h2>
       <div class="card">
-        <p>K-Love sagt Bescheid, wenn es eine neue Version gibt, und zeigt dir vorher, was sich geändert hat. Du entscheidest: jetzt aktualisieren, später erinnern oder überspringen. Ohne deine Zustimmung wird nichts geladen oder installiert.</p>
+        <p>K-Love sagt Bescheid, wenn es eine neue Version gibt, und zeigt dir vorher, was sich geändert hat. Du entscheidest: jetzt aktualisieren, morgen oder in einer Woche erinnern oder überspringen. Ohne deine Zustimmung wird nichts geladen oder installiert.</p>
       </div>
+      <p class="note">Poster, Infos und Empfehlungen stammen aus den freien Datenbanken TVmaze und Wikidata. K-Love ist nicht mit Netflix oder anderen Streaming-Diensten verbunden.</p>
     </section>
   </main>
 
