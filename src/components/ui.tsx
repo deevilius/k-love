@@ -1,6 +1,49 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { STATUS_LABELS, type Drama, type WatchStatus } from '../types'
 import { cx, fmtRating, overall } from '../lib/util'
+import { stepEpisode } from '../db/repo'
+import { toast } from './Dialogs'
+
+/**
+ * Bilder aus dem Netz laufen in der Desktop-App über den lokalen Bild-Zwischenspeicher
+ * (klove-img://) – so bleiben Poster auch offline und nach Änderungen beim Anbieter erhalten.
+ */
+export function imageSrc(url: string | undefined): string | undefined {
+  if (!url || !window.klove || !/^https:\/\//i.test(url)) return url
+  const b64 = btoa(String.fromCharCode(...new TextEncoder().encode(url)))
+  return `klove-img://cache/${b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`
+}
+
+/** −1 / +1 Folge; nach der letzten Folge wird das Drama automatisch „Fertig“ */
+export function EpisodeStepper({ drama: d, compact }: { drama: Drama; compact?: boolean }) {
+  const cur = d.currentEpisode ?? 0
+  const step = async (delta: 1 | -1, e: React.MouseEvent) => {
+    // Kann in einem Link stecken (Leiste „Schaue gerade“)
+    e.preventDefault()
+    e.stopPropagation()
+    if (await stepEpisode(d.id, delta)) toast(`🎉 „${d.title}“ fertig geschaut!`)
+  }
+  const btn = cx(
+    'grid place-items-center rounded-full font-bold transition active:scale-95 disabled:opacity-40',
+    compact ? 'h-7 w-7 text-sm' : 'h-9 w-9 text-lg',
+  )
+  return (
+    <div className="flex items-center gap-2">
+      <button type="button" className={cx(btn, 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-white/10 dark:text-rose-100')} disabled={cur <= 0} onClick={(e) => step(-1, e)} aria-label={`${d.title}: eine Folge zurück`} title="Eine Folge zurück">
+        −
+      </button>
+      {!compact && (
+        <span className="min-w-24 text-center text-sm font-semibold tabular-nums" aria-live="polite">
+          Folge {cur}
+          {d.episodes ? ` / ${d.episodes}` : ''}
+        </span>
+      )}
+      <button type="button" className={cx(btn, 'bg-pink-600 text-white hover:bg-pink-700')} disabled={!!d.episodes && cur >= d.episodes} onClick={(e) => step(1, e)} aria-label={`${d.title}: eine Folge weiter`} title="Eine Folge weiter">
+        +1
+      </button>
+    </div>
+  )
+}
 
 const STATUS_STYLE: Record<WatchStatus, string> = {
   watchlist: 'bg-sky-100 text-sky-700 dark:bg-sky-500/20 dark:text-sky-200',
@@ -19,16 +62,61 @@ export function RatingHearts({
   value,
   onChange,
   size = 'md',
+  label = 'Bewertung',
 }: {
   value: number | undefined
   onChange?: (v: number | undefined) => void
   size?: 'sm' | 'md' | 'lg'
+  /** Name für Screenreader */
+  label?: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
   const shown = hover ?? value ?? 0
   const px = size === 'sm' ? 'text-base' : size === 'lg' ? 'text-3xl' : 'text-2xl'
+  // Zuletzt gesetzter Wert – die Datenbank meldet Änderungen verzögert, schnelle Tastendrücke sollen sich addieren
+  const latest = useRef(value)
+  useEffect(() => {
+    latest.current = value
+  }, [value])
+  // Tastatur: Pfeile ±1, Pos1/Ende, Entf = keine Note
+  const onKey = (e: React.KeyboardEvent) => {
+    if (!onChange) return
+    const v = latest.current ?? 0
+    const next =
+      e.key === 'ArrowRight' || e.key === 'ArrowUp'
+        ? Math.min(10, v + 1)
+        : e.key === 'ArrowLeft' || e.key === 'ArrowDown'
+          ? Math.max(0, v - 1)
+          : e.key === 'Home'
+            ? 1
+            : e.key === 'End'
+              ? 10
+              : e.key === 'Delete' || e.key === 'Backspace'
+                ? 0
+                : null
+    if (next === null) return
+    e.preventDefault()
+    latest.current = next || undefined
+    onChange(latest.current)
+  }
+  const a11y = onChange
+    ? {
+        role: 'slider' as const,
+        tabIndex: 0,
+        'aria-label': label,
+        'aria-valuemin': 0,
+        'aria-valuemax': 10,
+        'aria-valuenow': value ?? 0,
+        'aria-valuetext': value === undefined ? 'keine Note' : `${fmtRating(value)} von 10`,
+        onKeyDown: onKey,
+      }
+    : { role: 'img' as const, 'aria-label': value === undefined ? `${label}: keine Note` : `${label}: ${fmtRating(value)} von 10` }
   return (
-    <div className={cx('inline-flex select-none items-center', px)} onMouseLeave={() => setHover(null)}>
+    <div
+      className={cx('inline-flex select-none items-center rounded-lg outline-none focus-visible:ring-2 focus-visible:ring-pink-400', px)}
+      onMouseLeave={() => setHover(null)}
+      {...a11y}
+    >
       {[1, 2, 3, 4, 5].map((i) => {
         const full = shown >= i * 2
         const half = !full && shown >= i * 2 - 1
@@ -45,6 +133,8 @@ export function RatingHearts({
               <>
                 <button
                   type="button"
+                  tabIndex={-1}
+                  aria-hidden
                   aria-label={`${i * 2 - 1} von 10`}
                   className="absolute inset-y-0 left-0 w-1/2 cursor-pointer"
                   onMouseEnter={() => setHover(i * 2 - 1)}
@@ -52,6 +142,8 @@ export function RatingHearts({
                 />
                 <button
                   type="button"
+                  tabIndex={-1}
+                  aria-hidden
                   aria-label={`${i * 2} von 10`}
                   className="absolute inset-y-0 right-0 w-1/2 cursor-pointer"
                   onMouseEnter={() => setHover(i * 2)}
@@ -78,8 +170,18 @@ export function ScoreBubble({ drama, className }: { drama: Drama; className?: st
 }
 
 export function Poster({ drama, className }: { drama: Pick<Drama, 'posterUrl' | 'title'>; className?: string }) {
-  if (drama.posterUrl)
-    return <img src={drama.posterUrl} alt={drama.title} loading="lazy" className={cx('aspect-[2/3] rounded-xl object-cover', className)} />
+  // Nicht ladbar (offline und noch nicht zwischengespeichert) → Platzhalter mit Titel
+  const [failed, setFailed] = useState<string | null>(null)
+  if (drama.posterUrl && failed !== drama.posterUrl)
+    return (
+      <img
+        src={imageSrc(drama.posterUrl)}
+        alt={drama.title}
+        loading="lazy"
+        onError={() => setFailed(drama.posterUrl!)}
+        className={cx('aspect-[2/3] rounded-xl object-cover', className)}
+      />
+    )
   return (
     <div
       className={cx(

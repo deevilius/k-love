@@ -4,6 +4,7 @@ import { detectSource, embedUrl, isCollection, spotifySearchUrl, youtubeSearchUr
 import type { Drama, Song } from '../types'
 import { cx } from '../lib/util'
 import { AddToPlaylist } from './AddToPlaylist'
+import { alertDialog, confirmDialog } from './Dialogs'
 import { canFindOst, ensureOst, splitPlaylistSong, useOstStatus } from '../lib/autoOst'
 import { currentItem, playQueue, toQueueItem, togglePlay, usePlayer, type QueueItem } from '../lib/player'
 
@@ -25,7 +26,7 @@ export default function OstSection({ drama }: { drama: Drama }) {
     setSplitting(s.id)
     try {
       const n = await splitPlaylistSong(s)
-      if (!n) alert('Die Playlist konnte nicht geladen werden – bist du online? Versuch es gleich nochmal.')
+      if (!n) void alertDialog('Die Playlist konnte nicht geladen werden – bist du online? Versuch es gleich nochmal.')
     } finally {
       setSplitting(null)
     }
@@ -150,7 +151,7 @@ export default function OstSection({ drama }: { drama: Drama }) {
                   </button>
                   <button
                     className="rounded p-1.5 hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-500/10"
-                    onClick={() => confirm(`„${s.title}“ entfernen?`) && deleteSong(s.id)}
+                    onClick={async () => (await confirmDialog(`„${s.title}“ entfernen?`, { confirmLabel: 'Entfernen', danger: true })) && deleteSong(s.id)}
                     title="Entfernen"
                   >
                     🗑

@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { discardUndoSnapshot, restoreBackup, undoRestore, useAllSongs, useDramas, usePlaylists, useSettings, useUndoSnapshot, validateBackup, type Backup, type RestoreResult } from '../db/repo'
 import { getAutoBackupError, onAutoBackupError, runAutoBackup, writePreRestoreCopy } from '../lib/autoBackup'
-import type { BackupConfig } from '../electron'
+import type { BackupConfig, BackupFile } from '../electron'
+import { alertDialog, confirmDialog } from './Dialogs'
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' })
 
@@ -15,7 +16,7 @@ function useRestoreFlow() {
     try {
       setPending({ backup: validateBackup(JSON.parse(await file.text())), source: file.name })
     } catch (e) {
-      alert(e instanceof SyntaxError ? 'Die Datei ist keine gültige JSON-Datei.' : (e as Error).message)
+      void alertDialog(e instanceof SyntaxError ? 'Die Datei ist keine gültige JSON-Datei.' : (e as Error).message)
     }
   }
 
@@ -23,7 +24,7 @@ function useRestoreFlow() {
     try {
       setPending({ backup: validateBackup(JSON.parse(await window.klove!.backup.read(name))), source: name })
     } catch (e) {
-      alert((e as Error).message)
+      void alertDialog((e as Error).message)
     }
   }
 
@@ -34,7 +35,7 @@ function useRestoreFlow() {
       const r = await restoreBackup(pending.backup, mode)
       setResult(describe(r, mode))
     } catch (e) {
-      alert('Fehler: ' + (e as Error).message)
+      void alertDialog('Fehler: ' + (e as Error).message)
     } finally {
       setPending(null)
     }
@@ -54,12 +55,12 @@ export function BackupSection() {
   const when = days === 0 ? 'heute' : `vor ${days} Tag(en)`
 
   const doUndo = async () => {
-    if (!confirm('Den Stand von vor der letzten Wiederherstellung zurückholen?')) return
+    if (!(await confirmDialog('Den Stand von vor der letzten Wiederherstellung zurückholen?', { confirmLabel: 'Zurückholen' }))) return
     try {
       await undoRestore()
       flow.setResult('↩️ Wiederherstellung rückgängig gemacht.')
     } catch (e) {
-      alert((e as Error).message)
+      void alertDialog((e as Error).message)
     }
   }
 
@@ -74,8 +75,9 @@ export function BackupSection() {
             : `✅ Wird automatisch gespeichert · zuletzt ${when}`}
       </p>
 
-      <ProfileFolder onRestore={flow.openStored} />
+      {window.klove && <ProfileFolder onRestore={flow.openStored} />}
       <LoadFileButton onOpen={flow.openFile} />
+      {window.klove && <StoredCopies onRestore={flow.openStored} />}
 
       {flow.result && <p className="text-sm font-semibold text-emerald-600">{flow.result}</p>}
 
@@ -154,11 +156,59 @@ function ProfileFolder({ onRestore }: { onRestore: (name: string) => void }) {
   )
 }
 
+const COPY_LABELS: Record<BackupFile['kind'], string> = {
+  profile: 'Aktuelles Profil',
+  previous: 'Stand davor',
+  'pre-restore': 'Vor der letzten Wiederherstellung',
+  'pre-drop': 'Vor dem Löschen vieler Dramen',
+  daily: 'Tageskopie',
+}
+
+/** Sicherheitskopien im Profilordner – aufklappbar, mit „Wiederherstellen“ */
+function StoredCopies({ onRestore }: { onRestore: (name: string) => void }) {
+  const [files, setFiles] = useState<BackupFile[] | null>(null)
+  const load = () =>
+    window
+      .klove!.backup.list()
+      .then((l) => setFiles(l.filter((f) => f.kind !== 'profile')))
+      .catch(() => setFiles([]))
+  return (
+    <details className="rounded-xl bg-rose-50/60 p-3 text-sm dark:bg-white/5" onToggle={(e) => (e.currentTarget.open ? void load() : undefined)}>
+      <summary className="cursor-pointer font-semibold">🛟 Sicherheitskopien</summary>
+      <p className="mt-2 text-xs text-stone-500 dark:text-rose-100/60">
+        K-Love hebt den vorherigen Stand, eine Kopie pro Tag (die letzten 7) und den Stand vor dem Löschen vieler Dramen auf.
+      </p>
+      {files === null ? null : files.length === 0 ? (
+        <p className="mt-2 text-xs">Noch keine Kopien vorhanden.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-rose-100 dark:divide-white/5">
+          {files.map((f) => (
+            <li key={f.name} className="flex flex-wrap items-center gap-2 py-1.5">
+              <span className="min-w-0 flex-1">
+                <span className="font-semibold">{COPY_LABELS[f.kind]}</span>
+                <span className="text-stone-500 dark:text-rose-100/60">
+                  {' '}
+                  · {fmtDate(f.date)} · {f.dramas >= 0 ? `${f.dramas} Dramen` : 'nicht lesbar'}
+                </span>
+              </span>
+              <button className="btn-outline px-3 py-1 text-xs" disabled={f.dramas < 0} onClick={() => onRestore(f.name)}>
+                Wiederherstellen …
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </details>
+  )
+}
+
 function describe(r: RestoreResult, mode: 'replace' | 'merge') {
   if (mode === 'replace') return `✅ Daten ersetzt: ${r.added} Dramen, ${r.songsAdded} Songs, ${r.playlistsAdded} Playlists.`
   const parts = [`${r.added} neu`, `${r.updated} aktualisiert`]
-  if (r.skipped) parts.push(`${r.skipped} unverändert (hier neuer oder gleich)`)
-  return `✅ Zusammengeführt: ${parts.join(', ')}${r.songsAdded ? `, ${r.songsAdded} Songs ergänzt` : ''}${r.playlistsAdded ? `, ${r.playlistsAdded} Playlists ergänzt` : ''}.`
+  if (r.skipped) parts.push(`${r.skipped} unverändert (hier neuer, gleich oder gelöscht)`)
+  if (r.removed) parts.push(`${r.removed} entfernt (in der Sicherung gelöscht)`)
+  const songs = [r.songsAdded && `${r.songsAdded} Songs ergänzt`, r.songsUpdated && `${r.songsUpdated} Songs aktualisiert`].filter(Boolean)
+  return `✅ Zusammengeführt: ${parts.join(', ')}${songs.length ? `, ${songs.join(', ')}` : ''}${r.playlistsAdded ? `, ${r.playlistsAdded} Playlists ergänzt` : ''}.`
 }
 
 function RestoreDialog({
@@ -233,7 +283,7 @@ function RestoreDialog({
           <button className="btn-primary w-full justify-center" disabled={busy} onClick={() => run('merge')}>
             Zusammenführen (empfohlen)
           </button>
-          <p className="text-xs text-stone-500 dark:text-rose-100/60">Fehlende Dramen und Songs werden ergänzt. Ein vorhandenes Drama wird nur ersetzt, wenn es in der Sicherung neuer ist.</p>
+          <p className="text-xs text-stone-500 dark:text-rose-100/60">Fehlendes wird ergänzt, bei Dramen, Songs und Playlists gewinnt die neuere Fassung. Was du hier gelöscht hast, kommt nicht zurück.</p>
           <button className="btn-danger w-full justify-center border border-red-200 dark:border-red-500/30" disabled={busy} onClick={() => run('replace')}>
             Aktuelle Daten durch die Sicherung ersetzen
           </button>

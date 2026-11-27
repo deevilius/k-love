@@ -23,6 +23,18 @@
         "--strictPort"
       ],
       "port": 5180
+    },
+    {
+      "name": "k-love-build",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--port",
+        "4173",
+        "--strictPort"
+      ],
+      "port": 4173
     }
   ]
 }

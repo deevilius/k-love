@@ -44,7 +44,10 @@ jobs:
           node scripts/changelog.mjs "$VERSION"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-      # Erst bauen – schlägt das fehl, wird nichts committet oder veröffentlicht
+      # Erst testen und bauen – schlägt das fehl, wird nichts committet oder veröffentlicht
+      - name: Tests
+        run: npm test
+
       - name: App bauen
         run: |
           npm run build

@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
-import { emptyDrama, saveDrama, useDrama, useDramas } from '../db/repo'
-import { DEFAULT_RATING_LABELS, PLATFORMS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
+import { emptyDrama, saveDrama, useDrama, useDramas, useRatingCategories } from '../db/repo'
+import { PLATFORMS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
+import { confirmDialog } from '../components/Dialogs'
 import { bestMatch, completeCandidate, searchFreePosters, type PosterCandidate } from '../lib/freePosters'
 import { ensureOst } from '../lib/autoOst'
 import { avgRating, fmtRating, today } from '../lib/util'
@@ -12,6 +13,7 @@ export default function DramaForm() {
   const existing = useDrama(id)
   const all = useDramas()
   const nav = useNavigate()
+  const categories = useRatingCategories()
   const [d, setD] = useState<Drama | null>(id ? null : emptyDrama())
   const [error, setError] = useState('')
   // Ausgangsstand, um ungespeicherte Änderungen zu erkennen
@@ -25,10 +27,19 @@ export default function DramaForm() {
   }, [id, existing, d])
 
   const blocker = useBlocker(({ currentLocation, nextLocation }) => dirty && !saving.current && currentLocation.pathname !== nextLocation.pathname)
+  const asking = useRef(false)
   useEffect(() => {
-    if (blocker.state !== 'blocked') return
-    if (confirm('Du hast ungespeicherte Änderungen. Wirklich verlassen und die Änderungen verwerfen?')) blocker.proceed()
-    else blocker.reset()
+    if (blocker.state !== 'blocked' || asking.current) return
+    asking.current = true
+    void confirmDialog('Du hast ungespeicherte Änderungen. Wirklich verlassen und die Änderungen verwerfen?', {
+      confirmLabel: 'Verwerfen',
+      cancelLabel: 'Weiter bearbeiten',
+      danger: true,
+    }).then((ok) => {
+      asking.current = false
+      if (ok) blocker.proceed()
+      else blocker.reset()
+    })
   }, [blocker])
 
   const poster = useAutoPoster(d, setD)
@@ -42,7 +53,7 @@ export default function DramaForm() {
     e.preventDefault()
     if (!d.title.trim()) return setError('Bitte einen Titel eingeben.')
     const dup = all?.find((x) => x.id !== d.id && x.title.trim().toLowerCase() === d.title.trim().toLowerCase())
-    if (dup && !confirm(`„${dup.title}“ ist schon in deiner Liste. Trotzdem speichern?`)) return
+    if (dup && !(await confirmDialog(`„${dup.title}“ ist schon in deiner Liste. Trotzdem speichern?`, { confirmLabel: 'Trotzdem speichern' }))) return
     const next = { ...d, title: d.title.trim() }
     if (next.status === 'completed' && !next.finishedAt && existing?.status !== 'completed') next.finishedAt = today()
     if (next.status === 'watching' && !next.startedAt) next.startedAt = today()
@@ -139,10 +150,10 @@ export default function DramaForm() {
       <div className="card space-y-4 p-5">
         <h2 className="h-display text-lg font-bold">Meine Bewertung</h2>
         <div className="grid gap-3 sm:grid-cols-2">
-          {RATING_KEYS.map((k) => (
-            <div key={k} className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{DEFAULT_RATING_LABELS[k]}</span>
-              <RatingHearts value={d.ratings[k]} onChange={(v) => set('ratings', { ...d.ratings, [k]: v })} />
+          {categories.map(({ key, label }) => (
+            <div key={key} className="flex items-center justify-between gap-2">
+              <span className="font-semibold">{label}</span>
+              <RatingHearts label={label} value={d.ratings[key]} onChange={(v) => set('ratings', { ...d.ratings, [key]: v })} />
             </div>
           ))}
         </div>
@@ -151,7 +162,7 @@ export default function DramaForm() {
             <span className="font-bold">Gesamtnote</span>
             <span className="ml-2 text-xs text-stone-500">leer = Durchschnitt ({fmtRating(avgRating(d))})</span>
           </div>
-          <RatingHearts value={d.overallRating} onChange={(v) => set('overallRating', v)} size="lg" />
+          <RatingHearts label="Gesamtnote" value={d.overallRating} onChange={(v) => set('overallRating', v)} size="lg" />
         </div>
         <label className="flex cursor-pointer items-center gap-2 font-semibold">
           <input type="checkbox" className="h-5 w-5 accent-pink-600" checked={d.favorite} onChange={(e) => set('favorite', e.target.checked)} />

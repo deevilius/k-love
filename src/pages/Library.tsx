@@ -1,9 +1,9 @@
-import { useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useDramas } from '../db/repo'
 import { STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
 import { cx, fmtRating, overall } from '../lib/util'
-import { Empty, Poster, Progress, ScoreBubble, StatusBadge } from '../components/ui'
+import { Empty, EpisodeStepper, Poster, Progress, ScoreBubble, StatusBadge } from '../components/ui'
 import CoupleArt from '../components/CoupleArt'
 
 type Sort = 'updated' | 'title' | 'rating' | 'year' | 'added'
@@ -26,13 +26,47 @@ function load<T>(key: string, fallback: T): T {
   }
 }
 
+interface Filters {
+  q: string
+  status: WatchStatus | 'all'
+  genre: string
+  platform: string
+  favOnly: boolean
+}
+const NO_FILTERS: Filters = { q: '', status: 'all', genre: '', platform: '', favOnly: false }
+/** Filter überleben den Wechsel zur Drama-Seite und zurück (bis die App geschlossen wird) */
+const FILTER_KEY = 'klove.filters'
+function loadFilters(): Filters {
+  try {
+    return { ...NO_FILTERS, ...JSON.parse(sessionStorage.getItem(FILTER_KEY) ?? '{}') }
+  } catch {
+    return NO_FILTERS
+  }
+}
+
+/** Id des Suchfelds – Strg+F springt hierher */
+const LIBRARY_SEARCH_ID = 'library-search'
+
 export default function Library() {
   const dramas = useDramas()
-  const [q, setQ] = useState('')
-  const [status, setStatus] = useState<WatchStatus | 'all'>('all')
-  const [genre, setGenre] = useState('')
-  const [platform, setPlatform] = useState('')
-  const [favOnly, setFavOnly] = useState(false)
+  const loc = useLocation()
+  const searchRef = useRef<HTMLInputElement>(null)
+  const [filters, setFilters] = useState<Filters>(loadFilters)
+  const { q, status, genre, platform, favOnly } = filters
+  const setFilter = <K extends keyof Filters>(k: K, v: Filters[K]) => setFilters((f) => ({ ...f, [k]: v }))
+  const setQ = (v: string) => setFilter('q', v)
+  const setStatus = (v: Filters['status']) => setFilter('status', v)
+  const setGenre = (v: string) => setFilter('genre', v)
+  const setPlatform = (v: string) => setFilter('platform', v)
+  const setFavOnly = (v: boolean) => setFilter('favOnly', v)
+  useEffect(() => sessionStorage.setItem(FILTER_KEY, JSON.stringify(filters)), [filters])
+  const filtered = q || status !== 'all' || genre || platform || favOnly
+
+  // Strg+F von einer anderen Seite: nach dem Laden ins Suchfeld springen
+  const focusSearch = (loc.state as { focusSearch?: number } | null)?.focusSearch
+  useEffect(() => {
+    if (focusSearch) searchRef.current?.focus()
+  }, [focusSearch, dramas === undefined])
   const [sort, setSortState] = useState<Sort>(() => load('klove.sort', 'updated'))
   const [view, setViewState] = useState<View>(() => load('klove.view', 'grid'))
   const setSort = (s: Sort) => (setSortState(s), localStorage.setItem('klove.sort', JSON.stringify(s)))
@@ -111,9 +145,12 @@ export default function Library() {
                 <Poster drama={d} className="w-16 shrink-0 rounded-lg" />
                 <div className="flex min-w-0 flex-1 flex-col justify-center gap-1.5">
                   <div className="truncate font-bold">{d.title}</div>
-                  <div className="text-xs text-stone-500 dark:text-rose-100/60">
-                    Episode {d.currentEpisode ?? 0}
-                    {d.episodes ? ` / ${d.episodes}` : ''}
+                  <div className="flex items-center justify-between gap-2 text-xs text-stone-500 dark:text-rose-100/60">
+                    <span>
+                      Episode {d.currentEpisode ?? 0}
+                      {d.episodes ? ` / ${d.episodes}` : ''}
+                    </span>
+                    <EpisodeStepper drama={d} compact />
                   </div>
                   <Progress drama={d} />
                 </div>
@@ -125,17 +162,34 @@ export default function Library() {
 
       <section className="card space-y-3 p-3">
         <div className="flex flex-wrap gap-2">
-          <input className="input min-w-48 flex-1" placeholder="🔍 Titel, Schauspieler, Notizen …" value={q} onChange={(e) => setQ(e.target.value)} />
-          <select className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+          <input
+            ref={searchRef}
+            id={LIBRARY_SEARCH_ID}
+            type="search"
+            aria-label="Bibliothek durchsuchen"
+            className="input min-w-48 flex-1"
+            placeholder="🔍 Titel, Schauspieler, Notizen … (Strg+F)"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => e.key === 'Escape' && setQ('')}
+          />
+          <select aria-label="Sortierung" className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
             {Object.entries(SORT_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>
             ))}
           </select>
-          <div className="flex rounded-full border border-rose-200 p-0.5 dark:border-white/15">
+          <div className="flex rounded-full border border-rose-200 p-0.5 dark:border-white/15" role="group" aria-label="Ansicht">
             {(['grid', 'list'] as View[]).map((v) => (
-              <button key={v} className={cx('rounded-full px-3 py-1 text-sm', view === v && 'bg-pink-600 text-white')} onClick={() => setView(v)} title={v === 'grid' ? 'Poster' : 'Liste'}>
+              <button
+                key={v}
+                className={cx('rounded-full px-3 py-1 text-sm', view === v && 'bg-pink-600 text-white')}
+                onClick={() => setView(v)}
+                title={v === 'grid' ? 'Poster' : 'Liste'}
+                aria-label={v === 'grid' ? 'Posteransicht' : 'Listenansicht'}
+                aria-pressed={view === v}
+              >
                 {v === 'grid' ? '▦' : '☰'}
               </button>
             ))}
@@ -145,6 +199,7 @@ export default function Library() {
           {(['all', ...STATUS_ORDER] as const).map((s) => (
             <button
               key={s}
+              aria-pressed={status === s}
               onClick={() => setStatus(s)}
               className={cx(
                 'rounded-full px-3 py-1 text-xs font-bold transition',
@@ -155,13 +210,14 @@ export default function Library() {
             </button>
           ))}
           <button
+            aria-pressed={favOnly}
             onClick={() => setFavOnly(!favOnly)}
             className={cx('rounded-full px-3 py-1 text-xs font-bold', favOnly ? 'bg-pink-600 text-white' : 'bg-rose-100 text-rose-700 dark:bg-white/10 dark:text-rose-100')}
           >
             ⭐ Favoriten
           </button>
           {genres.length > 0 && (
-            <select className="input w-auto py-1 text-xs" value={genre} onChange={(e) => setGenre(e.target.value)}>
+            <select aria-label="Genre" className="input w-auto py-1 text-xs" value={genre} onChange={(e) => setGenre(e.target.value)}>
               <option value="">Alle Genres</option>
               {genres.map((g) => (
                 <option key={g}>{g}</option>
@@ -169,12 +225,17 @@ export default function Library() {
             </select>
           )}
           {platforms.length > 0 && (
-            <select className="input w-auto py-1 text-xs" value={platform} onChange={(e) => setPlatform(e.target.value)}>
+            <select aria-label="Plattform" className="input w-auto py-1 text-xs" value={platform} onChange={(e) => setPlatform(e.target.value)}>
               <option value="">Alle Plattformen</option>
               {platforms.map((p) => (
                 <option key={p}>{p}</option>
               ))}
             </select>
+          )}
+          {filtered && (
+            <button className="btn-ghost px-3 py-1 text-xs" onClick={() => setFilters(NO_FILTERS)}>
+              ✕ Filter zurücksetzen
+            </button>
           )}
         </div>
       </section>

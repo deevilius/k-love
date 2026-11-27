@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { Link, NavLink, useNavigate, useParams } from 'react-router-dom'
 import { createPlaylist, deletePlaylist, movePlaylistItem, removeFromPlaylist, renamePlaylist, useAllSongs, useDramas, usePlaylists } from '../db/repo'
 import { AddToPlaylist } from '../components/AddToPlaylist'
+import { confirmDialog } from '../components/Dialogs'
 import { Poster } from '../components/ui'
 import { canFindOst, splitPlaylistSong } from '../lib/autoOst'
 import { isCollection } from '../lib/music'
@@ -161,7 +162,7 @@ function AllSongs({ songs, dramas, toItem }: { songs: Song[]; dramas: Drama[]; t
   }
 
   const splitAll = async () => {
-    if (!confirm(`${collections.length} gespeicherte YouTube-Playlists in Einzelsongs aufteilen?`)) return
+    if (!(await confirmDialog(`${collections.length} gespeicherte YouTube-Playlists in Einzelsongs aufteilen?`, { confirmLabel: 'Aufteilen' }))) return
     setSplitting({ done: 0, total: collections.length })
     for (const [i, s] of collections.entries()) {
       await splitPlaylistSong(s).catch(() => 0)
@@ -311,7 +312,7 @@ function PlaylistView({
             <button
               className="btn-danger text-xs"
               onClick={async () => {
-                if (!confirm(`Playlist „${name}“ löschen? Die Songs selbst bleiben erhalten.`)) return
+                if (!(await confirmDialog(`Playlist „${name}“ löschen? Die Songs selbst bleiben erhalten.`, { confirmLabel: 'Löschen', danger: true }))) return
                 await deletePlaylist(id)
                 onDeleted()
               }}

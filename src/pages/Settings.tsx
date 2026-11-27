@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { allDramas, allSongs, saveSettings, updateDrama, useSettings } from '../db/repo'
+import { allDramas, allSongs, newId, removeRatingCategory, saveRatingCategories, saveSettings, updateDrama, useRatingCategories, useSettings } from '../db/repo'
+import { alertDialog, confirmDialog, toast } from '../components/Dialogs'
+import { DEFAULT_RATING_CATEGORIES, MAX_RATING_CATEGORIES } from '../types'
 import { canFindOst, ensureOst } from '../lib/autoOst'
 import { bestMatch, completeCandidate, searchFreePosters } from '../lib/freePosters'
 import { BackupSection } from '../components/BackupSection'
@@ -24,11 +26,124 @@ export default function SettingsPage() {
       <h1 className="h-display text-2xl font-bold">Einstellungen</h1>
       <BackupSection />
       <StreamingSection />
+      <RatingSection />
       <PosterSection />
       <OstSection />
       <MusicSection />
+      <ShortcutSection />
       <AppSection />
     </div>
+  )
+}
+
+/** Eigene Bewertungskategorien: umbenennen, hinzufügen, entfernen */
+function RatingSection() {
+  const cats = useRatingCategories()
+  const [label, setLabel] = useState('')
+  const isDefault = cats === DEFAULT_RATING_CATEGORIES
+
+  const rename = (key: string, value: string) => {
+    const v = value.trim()
+    if (!v || cats.find((c) => c.key === key)?.label === v) return
+    void saveRatingCategories(cats.map((c) => (c.key === key ? { ...c, label: v } : c)))
+  }
+  const add = (e: React.FormEvent) => {
+    e.preventDefault()
+    const v = label.trim()
+    if (!v || cats.length >= MAX_RATING_CATEGORIES) return
+    void saveRatingCategories([...cats, { key: `c_${newId().slice(0, 8)}`, label: v }])
+    setLabel('')
+  }
+  const remove = async (key: string, name: string) => {
+    if (cats.length <= 1) return void alertDialog('Mindestens eine Kategorie muss bleiben.')
+    if (!(await confirmDialog(`Kategorie „${name}“ entfernen? Die Noten dieser Kategorie werden bei allen Dramen gelöscht.`, { confirmLabel: 'Entfernen', danger: true }))) return
+    await removeRatingCategory(key)
+    toast(`„${name}“ entfernt.`)
+  }
+  const move = (i: number, dir: -1 | 1) => {
+    const j = i + dir
+    if (j < 0 || j >= cats.length) return
+    const next = [...cats]
+    ;[next[i], next[j]] = [next[j], next[i]]
+    void saveRatingCategories(next)
+  }
+
+  return (
+    <section className="card space-y-3 p-5" id="ratings">
+      <h2 className="h-display text-lg font-bold">💗 Bewertungskategorien</h2>
+      <p className={muted}>Wonach du Dramen bewertest. Die Gesamtnote ist – wenn du sie nicht selbst setzt – der Durchschnitt dieser Kategorien.</p>
+      <ul className="space-y-1.5">
+        {cats.map((c, i) => (
+          <li key={c.key} className="flex items-center gap-1.5">
+            <input
+              className="input flex-1 py-1.5"
+              defaultValue={c.label}
+              aria-label={`Kategorie ${i + 1} umbenennen`}
+              maxLength={30}
+              onBlur={(e) => rename(c.key, e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), e.currentTarget.blur())}
+            />
+            <button className="btn-ghost px-2 py-1" disabled={i === 0} onClick={() => move(i, -1)} aria-label={`${c.label} nach oben`} title="Nach oben">
+              ↑
+            </button>
+            <button className="btn-ghost px-2 py-1" disabled={i === cats.length - 1} onClick={() => move(i, 1)} aria-label={`${c.label} nach unten`} title="Nach unten">
+              ↓
+            </button>
+            <button className="btn-danger px-2 py-1" onClick={() => remove(c.key, c.label)} aria-label={`${c.label} entfernen`} title="Entfernen">
+              🗑
+            </button>
+          </li>
+        ))}
+      </ul>
+      {cats.length < MAX_RATING_CATEGORIES ? (
+        <form onSubmit={add} className="flex gap-2">
+          <input className="input flex-1" value={label} maxLength={30} onChange={(e) => setLabel(e.target.value)} placeholder="Neue Kategorie, z. B. Second Lead, Kostüme …" />
+          <button className="btn-outline" type="submit" disabled={!label.trim()}>
+            ➕ Hinzufügen
+          </button>
+        </form>
+      ) : (
+        <p className="text-xs text-stone-500">Höchstens {MAX_RATING_CATEGORIES} Kategorien.</p>
+      )}
+      {!isDefault && (
+        <button
+          className="btn-ghost px-3 py-1 text-xs"
+          onClick={async () => {
+            if (await confirmDialog('Die fünf Standard-Kategorien wiederherstellen? Noten eigener Kategorien bleiben gespeichert, zählen aber erst wieder, wenn du die Kategorie neu anlegst.', { confirmLabel: 'Zurücksetzen' }))
+              void saveSettings({ ratingCategories: undefined })
+          }}
+        >
+          Standard wiederherstellen
+        </button>
+      )}
+    </section>
+  )
+}
+
+const SHORTCUTS: [string, string][] = [
+  ['Strg + F', 'In der Bibliothek suchen'],
+  ['Strg + N', 'Neues Drama hinzufügen'],
+  ['Alt + 1 … 6', 'Bibliothek, Entdecken, Hinzufügen, Musik, Statistik, Einstellungen'],
+  ['Leertaste', 'Musik im Mini-Player anhalten / weiterspielen'],
+  ['← / →', 'Herz-Bewertung ändern (wenn ausgewählt), Entf = keine Note'],
+  ['Esc', 'Dialog schließen, Suche leeren'],
+]
+
+function ShortcutSection() {
+  return (
+    <section className="card space-y-3 p-5" id="shortcuts">
+      <h2 className="h-display text-lg font-bold">⌨️ Tastenkürzel</h2>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-1.5 text-sm">
+        {SHORTCUTS.map(([k, v]) => (
+          <div key={k} className="contents">
+            <dt>
+              <kbd className="rounded-md border border-rose-200 bg-white px-1.5 py-0.5 text-xs font-bold dark:border-white/15 dark:bg-white/5">{k}</kbd>
+            </dt>
+            <dd className="text-stone-600 dark:text-rose-100/70">{v}</dd>
+          </div>
+        ))}
+      </dl>
+    </section>
   )
 }
 
@@ -154,8 +269,13 @@ function PosterSection() {
   const fillMissing = async () => {
     const all = await allDramas()
     const missing = all.filter((d) => !d.posterUrl)
-    if (!missing.length) return alert('Alle Dramen haben bereits ein Poster. 🎉')
-    if (!confirm(`${missing.length} Dramen ohne Poster gefunden. Jetzt automatisch suchen?\n\nDer beste Treffer wird übernommen, deine Bewertungen und Angaben bleiben unverändert.`)) return
+    if (!missing.length) return toast('Alle Dramen haben bereits ein Poster. 🎉')
+    if (
+      !(await confirmDialog(`${missing.length} Dramen ohne Poster gefunden. Jetzt automatisch suchen?\n\nDer beste Treffer wird übernommen, deine Bewertungen und Angaben bleiben unverändert.`, {
+        confirmLabel: 'Poster suchen',
+      }))
+    )
+      return
     const notFound: string[] = []
     setFill({ done: 0, total: missing.length })
     for (const [i, d] of missing.entries()) {
@@ -179,11 +299,9 @@ function PosterSection() {
       setFill({ done: i + 1, total: missing.length })
     }
     setFill(null)
-    alert(
-      notFound.length
-        ? `Fertig! Kein sicherer Treffer für:\n• ${notFound.join('\n• ')}\n\nDiese kannst du über „Bearbeiten“ → Poster suchen selbst auswählen.`
-        : 'Fertig! Alle Poster geladen 🎉',
-    )
+    if (notFound.length)
+      void alertDialog('Diese kannst du über „Bearbeiten“ selbst auswählen.', { title: `Kein sicherer Treffer für ${notFound.length} Dramen`, list: notFound })
+    else toast('Fertig! Alle Poster geladen 🎉')
   }
 
   return (
@@ -210,8 +328,13 @@ function OstSection() {
     const [dramas, songs] = await Promise.all([allDramas(), allSongs()])
     const withSongs = new Set(songs.map((s) => s.dramaId))
     const missing = dramas.filter((d) => !withSongs.has(d.id))
-    if (!missing.length) return alert('Alle Dramen haben bereits Songs. 🎉')
-    if (!confirm(`${missing.length} Dramen ohne Songs gefunden. Jetzt auf YouTube nach einer OST suchen?\n\nEs wird jeweils eine OST-Playlist hinterlegt, sonst ein OST-Video.`)) return
+    if (!missing.length) return toast('Alle Dramen haben bereits Songs. 🎉')
+    if (
+      !(await confirmDialog(`${missing.length} Dramen ohne Songs gefunden. Jetzt auf YouTube nach einer OST suchen?\n\nEs wird jeweils eine OST-Playlist hinterlegt, sonst ein OST-Video.`, {
+        confirmLabel: 'OSTs suchen',
+      }))
+    )
+      return
     const notFound: string[] = []
     setFill({ done: 0, total: missing.length })
     for (const [i, d] of missing.entries()) {
@@ -224,11 +347,9 @@ function OstSection() {
       await new Promise((r) => setTimeout(r, 400)) // freundlich zu YouTube
     }
     setFill(null)
-    alert(
-      notFound.length
-        ? `Fertig! Keine OST gefunden für:\n• ${notFound.join('\n• ')}\n\nDiese kannst du auf der Drama-Seite unter „➕ Song“ selbst eintragen.`
-        : 'Fertig! Alle OSTs hinterlegt 🎉',
-    )
+    if (notFound.length)
+      void alertDialog('Diese kannst du auf der Drama-Seite unter „➕ Song“ selbst eintragen.', { title: `Keine OST gefunden für ${notFound.length} Dramen`, list: notFound })
+    else toast('Fertig! Alle OSTs hinterlegt 🎉')
   }
 
   return (

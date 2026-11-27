@@ -6,8 +6,9 @@ export interface BackupConfig {
 }
 export interface BackupFile {
   name: string
-  /** profile = aktuelles Profil, previous = Stand davor, pre-restore = Stand vor der letzten Wiederherstellung */
-  kind: 'profile' | 'previous' | 'pre-restore'
+  /** profile = aktuelles Profil, previous = Stand davor, pre-restore = vor der letzten Wiederherstellung,
+   *  pre-drop = vor dem Löschen vieler Dramen, daily = Tageskopie im Unterordner Verlauf */
+  kind: 'profile' | 'previous' | 'pre-restore' | 'pre-drop' | 'daily'
   date: string
   size: number
   /** Anzahl Dramen in der Datei, -1 = nicht lesbar */
@@ -50,7 +51,7 @@ declare global {
     klove?: {
       getVersion(): Promise<string>
       checkForUpdates(): Promise<{ status: 'dev' | 'current' | 'available' | 'error'; version?: string; message?: string }>
-      diagnostics(): Promise<{ version: string; os: string; hasProfile: boolean }>
+      diagnostics(): Promise<{ version: string; os: string; hasProfile: boolean; youtubeIssue?: string | null }>
       adblock: {
         get(): Promise<boolean>
         set(enabled: boolean): Promise<boolean>

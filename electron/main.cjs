@@ -1,8 +1,9 @@
 // K-Love Desktop – Electron-Hauptprozess
-const { app, BrowserWindow, protocol, net, shell, session, dialog, ipcMain, nativeTheme } = require('electron')
+const { app, BrowserWindow, protocol, net, shell, session, dialog, ipcMain, nativeTheme, screen } = require('electron')
 const path = require('node:path')
 const fs = require('node:fs')
 const { pathToFileURL } = require('node:url')
+const { createImageCache } = require('./imageCache.cjs')
 
 const SCHEME = 'app'
 const HOST = 'k-love'
@@ -12,6 +13,8 @@ const DEV_URL = process.env.VITE_DEV_SERVER_URL
 // Feste Herkunft (app://k-love) → IndexedDB bleibt über Updates erhalten
 protocol.registerSchemesAsPrivileged([
   { scheme: SCHEME, privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true, stream: true } },
+  // Poster-Zwischenspeicher (siehe imageCache.cjs)
+  { scheme: 'klove-img', privileges: { standard: true, secure: true, supportFetchAPI: true, corsEnabled: true } },
 ])
 
 let win = null
@@ -38,6 +41,10 @@ function start() {
     return net.fetch(pathToFileURL(file).toString())
   })
 
+  const images = createImageCache(path.join(app.getPath('userData'), 'poster-cache'), (url) => net.fetch(url))
+  protocol.handle('klove-img', images.handle)
+  setTimeout(() => void images.prune(), 60 * 1000)
+
   // YouTube verweigert Einbettungen ohne Referer (Fehler 153)
   session.defaultSession.webRequest.onBeforeSendHeaders(
     { urls: ['https://*.youtube-nocookie.com/*', 'https://*.youtube.com/*', 'https://*.googlevideo.com/*', 'https://*.ytimg.com/*'] },
@@ -54,6 +61,7 @@ function start() {
     version: app.getVersion(),
     os: `Windows ${process.getSystemVersion()} (${process.arch})`,
     hasProfile: listFiles(readConfig().dir).some((f) => f.kind === 'profile'),
+    youtubeIssue,
   }))
   ipcMain.handle('klove:youtube-find-ost', (_e, title) => findYoutubeOst(title))
   ipcMain.handle('klove:youtube-playlist-items', (_e, listId) => youtubePlaylistItems(listId))
@@ -150,13 +158,35 @@ async function youtubeSession() {
   return ytSession
 }
 
+/**
+ * Letztes Problem beim Auslesen von YouTube (für „Fehler melden“). Ändert YouTube das Seitenformat,
+ * findet die OST-Suche sonst stillschweigend nichts mehr.
+ */
+let youtubeIssue = null
+function noteYoutubeIssue(msg) {
+  youtubeIssue = `${new Date().toISOString()} ${msg}`
+  console.warn('YouTube:', msg)
+}
+
 /** Liest die Seitendaten (ytInitialData) einer YouTube-Seite */
 async function youtubeData(url) {
   const ses = await youtubeSession()
   const res = await ses.fetch(url, { headers: { 'Accept-Language': 'en-US,en;q=0.9' }, credentials: 'include' })
-  if (!res.ok) return null
+  if (!res.ok) {
+    noteYoutubeIssue(`HTTP ${res.status}`)
+    return null
+  }
   const m = (await res.text()).match(/ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s)
-  return m ? JSON.parse(m[1]) : null
+  if (!m) {
+    noteYoutubeIssue('ytInitialData nicht gefunden – Seitenformat geändert?')
+    return null
+  }
+  try {
+    return JSON.parse(m[1])
+  } catch {
+    noteYoutubeIssue('ytInitialData nicht lesbar – Seitenformat geändert?')
+    return null
+  }
 }
 
 const youtubeResults = (query, filter) =>
@@ -202,8 +232,13 @@ async function findYoutubeOst(title) {
   try {
     const pl = collect(await youtubeResults(query, 'EgIQAw%3D%3D'), pickPlaylist).find(fits)
     if (pl) return pl
-    return collect(await youtubeResults(query), pickVideo).find(fits) ?? null
-  } catch {
+    const data = await youtubeResults(query)
+    const videos = collect(data, pickVideo)
+    // Eine Suche ohne einen einzigen erkannten Treffer deutet auf ein neues Format hin
+    if (data && !videos.length) noteYoutubeIssue('Suchergebnisse ohne erkannte Videos – Seitenformat geändert?')
+    return videos.find(fits) ?? null
+  } catch (e) {
+    noteYoutubeIssue(`OST-Suche: ${e?.message ?? e}`)
     return null
   }
 }
@@ -231,10 +266,27 @@ async function youtubePlaylistItems(listId, max = 25) {
   }
 }
 
+/** Zuletzt benutzte Fenstergröße/-position – nur, wenn sie noch auf einen vorhandenen Bildschirm passt */
+function savedBounds() {
+  const w = readPrefs().window
+  if (!w || !(w.width > 0) || !(w.height > 0)) return { width: 1280, height: 860 }
+  const visible =
+    typeof w.x === 'number' &&
+    typeof w.y === 'number' &&
+    screen.getAllDisplays().some(({ workArea: a }) => w.x < a.x + a.width - 80 && w.x + w.width > a.x + 80 && w.y >= a.y - 20 && w.y < a.y + a.height - 80)
+  return visible ? { x: w.x, y: w.y, width: w.width, height: w.height, maximized: !!w.maximized } : { width: w.width, height: w.height, maximized: !!w.maximized }
+}
+
+function rememberBounds() {
+  if (!win || win.isDestroyed() || win.isMinimized()) return
+  const b = win.getNormalBounds()
+  writePrefs({ ...readPrefs(), window: { ...b, maximized: win.isMaximized() } })
+}
+
 function createWindow() {
+  const { maximized, ...bounds } = savedBounds()
   win = new BrowserWindow({
-    width: 1280,
-    height: 860,
+    ...bounds,
     minWidth: 380,
     minHeight: 560,
     title: 'K-Love',
@@ -250,6 +302,13 @@ function createWindow() {
     },
   })
   win.removeMenu()
+  if (maximized) win.maximize()
+  let boundsTimer
+  const scheduleBounds = () => {
+    clearTimeout(boundsTimer)
+    boundsTimer = setTimeout(rememberBounds, 500)
+  }
+  for (const ev of ['resize', 'move', 'maximize', 'unmaximize']) win.on(ev, scheduleBounds)
 
   // Links mit target=_blank (YouTube-/Spotify-Suche, TMDB …) im normalen Browser öffnen
   win.webContents.setWindowOpenHandler(({ url }) => {
@@ -267,6 +326,8 @@ function createWindow() {
   win.loadURL(DEV_URL || `${SCHEME}://${HOST}/index.html`)
   // Beim Schließen noch einmal sichern (der Renderer liefert die Daten aus IndexedDB)
   win.on('close', (e) => {
+    clearTimeout(boundsTimer)
+    rememberBounds()
     if (quitBackupDone) return
     e.preventDefault()
     backupBeforeQuit().finally(() => win?.destroy())
@@ -287,41 +348,13 @@ function setUpdateState(patch) {
   if (win && !win.isDestroyed()) win.webContents.send('klove:update-state', updateState)
 }
 
-/** Release-Notizen kommen von GitHub als HTML – für die Oberfläche in reinen Text umwandeln */
-function htmlToText(html) {
-  if (!html) return ''
-  return String(html)
-    .replace(/\r\n/g, '\n')
-    .replace(/<\s*br\s*\/?>/gi, '\n')
-    .replace(/<\s*li[^>]*>/gi, '• ')
-    .replace(/<\/\s*(p|li|h[1-6]|ul|ol|div)\s*>/gi, '\n')
-    .replace(/<[^>]+>/g, '')
-    .replace(/&nbsp;/g, ' ')
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;|&apos;/g, "'")
-    .replace(/&#(\d+);/g, (_m, n) => String.fromCodePoint(Number(n)))
-    .replace(/&amp;/g, '&')
-    .replace(/^- /gm, '• ')
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{2,}(?=• )/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-}
+const { htmlToText, compareVersions } = require('./text.cjs')
 
 function normalizeNotes(info) {
   const n = info?.releaseNotes
   const list = Array.isArray(n) ? n.map((x) => ({ version: x.version, text: htmlToText(x.note) })) : [{ version: info?.version, text: htmlToText(n) }]
   return list.filter((x) => x.version).sort((a, b) => compareVersions(b.version, a.version))
 }
-function compareVersions(a, b) {
-  const pa = String(a).split('.').map(Number)
-  const pb = String(b).split('.').map(Number)
-  for (let i = 0; i < 3; i++) if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) - (pb[i] || 0)
-  return 0
-}
-
 function onUpdateAvailable(info) {
   if (updateState.status === 'downloading' || updateState.status === 'ready') return
   const notes = normalizeNotes(info)
@@ -455,13 +488,10 @@ async function installUpdate() {
 
 // ---------- Profil-Datei (automatische Sicherung) ----------
 // Alle Daten liegen in EINER Datei, die bei jeder Änderung aktualisiert wird.
-// Dazu höchstens zwei Sicherheitskopien: der vorherige Stand und der Stand vor der letzten Wiederherstellung.
+// Sicherheitskopien: vorheriger Stand, Stand vor der letzten Wiederherstellung, Stand vor einem starken
+// Rückgang der Dramen und eine Kopie pro Tag (die letzten 7) im Unterordner „Verlauf“. Siehe profile.cjs.
+const { listFiles, isReadableName, writeProfile } = require('./profile.cjs')
 const CONFIG_FILE = () => path.join(app.getPath('userData'), 'backup-config.json')
-const FILES = {
-  profile: 'k-love-profil.json',
-  previous: 'k-love-profil.vorher.json',
-  'pre-restore': 'k-love-profil.vor-wiederherstellung.json',
-}
 
 function readConfig() {
   const def = { dir: path.join(app.getPath('documents'), 'K-Love'), enabled: true }
@@ -474,32 +504,6 @@ function readConfig() {
 function writeConfig(c) {
   fs.mkdirSync(path.dirname(CONFIG_FILE()), { recursive: true })
   fs.writeFileSync(CONFIG_FILE(), JSON.stringify(c, null, 2))
-}
-
-/** Anzahl Dramen in einer Profildatei (oder -1, wenn nicht lesbar) */
-function dramaCount(file) {
-  try {
-    const b = JSON.parse(fs.readFileSync(file, 'utf8'))
-    return Array.isArray(b.dramas) ? b.dramas.length : -1
-  } catch {
-    return -1
-  }
-}
-
-function listFiles(dir) {
-  return Object.entries(FILES)
-    .map(([kind, name]) => {
-      const file = path.join(dir, name)
-      if (!fs.existsSync(file)) return null
-      const st = fs.statSync(file)
-      return { name, kind, date: st.mtime.toISOString(), size: st.size, dramas: dramaCount(file) }
-    })
-    .filter(Boolean)
-}
-
-function writeAtomic(file, data) {
-  fs.writeFileSync(file + '.tmp', data, 'utf8')
-  fs.renameSync(file + '.tmp', file)
 }
 
 function setupBackup() {
@@ -528,28 +532,10 @@ function setupBackup() {
   })
   ipcMain.handle('klove:backup-list', () => listFiles(readConfig().dir))
   ipcMain.handle('klove:backup-read', (_e, name) => {
-    if (!Object.values(FILES).includes(name)) throw new Error('Ungültiger Dateiname')
+    if (!isReadableName(name)) throw new Error('Ungültiger Dateiname')
     return fs.readFileSync(path.join(readConfig().dir, name), 'utf8')
   })
-  /**
-   * kind 'profile': Profil aktualisieren, der bisherige Inhalt wird zu „vorher“.
-   *   Ohne force wird ein Profil mit Dramen nie durch ein leeres ersetzt (Schutz z. B. nach „Alle Daten löschen“).
-   * kind 'pre-restore': Stand vor einer Wiederherstellung festhalten.
-   */
-  ipcMain.handle('klove:backup-write', (_e, json, kind, force) => {
-    if (typeof json !== 'string' || !json.startsWith('{')) throw new Error('Ungültige Sicherung')
-    if (kind !== 'profile' && kind !== 'pre-restore') throw new Error('Unbekannte Art')
-    const { dir } = readConfig()
-    fs.mkdirSync(dir, { recursive: true })
-    const file = path.join(dir, FILES[kind])
-    if (kind === 'profile') {
-      const incoming = (JSON.parse(json).dramas ?? []).length
-      if (!force && incoming === 0 && dramaCount(file) > 0) return { name: FILES.profile, dir, skipped: true }
-      if (fs.existsSync(file)) fs.copyFileSync(file, path.join(dir, FILES.previous))
-    }
-    writeAtomic(file, json)
-    return { name: FILES[kind], dir, skipped: false }
-  })
+  ipcMain.handle('klove:backup-write', (_e, json, kind, force) => writeProfile(readConfig().dir, json, kind, force))
 }
 
 let quitBackupDone = false

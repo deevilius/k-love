@@ -27,6 +27,12 @@ Alle Dramen, Songs und Einstellungen stehen in **einer Profildatei**, die K-Love
 | `Dokumente\K-Love\k-love-profil.json` | aktuelles Profil |
 | `k-love-profil.vorher.json` | Stand davor |
 | `k-love-profil.vor-wiederherstellung.json` | Stand vor der letzten Wiederherstellung |
+| `k-love-profil.vor-loeschung.json` | Stand, bevor mehr als die Hälfte der Dramen weggefallen ist |
+| `Verlaufk-love-profil-JJJJ-MM-TT.json` | eine Kopie pro Tag, die letzten 7 |
+
+Alle Kopien lassen sich unter Einstellungen → Profil → Sicherheitskopien wiederherstellen. Beim **Zusammenführen** gewinnt die jeweils neuere Fassung; was auf einem Rechner gelöscht wurde, kommt nicht zurück (K-Love merkt sich Löschungen ein Jahr lang).
+
+Poster werden beim ersten Anzeigen lokal zwischengespeichert (`%APPDATA%k-loveposter-cache`) und sind danach auch offline da.
 
 Den Ordner kannst du in den Einstellungen ändern, z. B. auf OneDrive. Zum Sichern oder Umziehen einfach den Ordner kopieren – startet K-Love auf einem neuen Rechner ohne Daten, bietet es an, das Profil zu laden.
 
@@ -58,6 +64,10 @@ npm run dev
 | `npm run dev` | Vite-Dev-Server + Electron mit Hot-Reload |
 | `npm start` | App bauen und starten wie installiert |
 | `npm run dist` | Installer lokal bauen (`release/`), ohne Veröffentlichung |
+| `npm test` | Tests (Vitest) |
+| `npm run typecheck` | TypeScript prüfen |
+
+Jeder Pull Request wird von der Action „Prüfen“ getestet und gebaut; der Release-Workflow lässt die Tests ebenfalls vor dem Bauen laufen.
 
 Update-Dialog testen (ohne echtes Release):
 
@@ -73,4 +83,4 @@ $env:KLOVE_FAKE_UPDATE = 'old'; npm run dev
 
 ## Technik
 
-Vite · React · TypeScript · Tailwind CSS 4 · Dexie (IndexedDB) · SheetJS · Recharts · Electron + electron-builder + electron-updater · GitHub Actions
+Vite · React · TypeScript · Tailwind CSS 4 · Dexie (IndexedDB) · Recharts · Vitest · Electron + electron-builder + electron-updater · GitHub Actions

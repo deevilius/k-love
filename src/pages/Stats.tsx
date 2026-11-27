@@ -1,12 +1,15 @@
 import { useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
-import { useAllSongs, useDramas } from '../db/repo'
-import { DEFAULT_RATING_LABELS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
+import { useAllSongs, useDramas, useRatingCategories } from '../db/repo'
+import { STATUS_LABELS, STATUS_ORDER } from '../types'
 import { fmtRating, overall } from '../lib/util'
+import { episodesPerMonth, watchedEpisodes } from '../lib/stats'
 import { Empty, Poster } from '../components/ui'
 
 const BAR = '#db2777' // pink-600: eine Farbe für alle Einzelreihen
+/** Angenommene Episodenlänge, wenn keine bekannt ist */
+const DEFAULT_RUNTIME = 60
 
 function count(list: string[]) {
   const m = new Map<string, number>()
@@ -14,19 +17,20 @@ function count(list: string[]) {
   return [...m.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value)
 }
 
-function watchedEpisodes(d: Drama) {
-  if (d.status === 'completed') return d.episodes ?? d.currentEpisode ?? 0
-  return d.currentEpisode ?? 0
-}
-
 export default function Stats() {
   const dramas = useDramas()
   const songs = useAllSongs()
+  const categories = useRatingCategories()
 
   const s = useMemo(() => {
     const list = dramas ?? []
     const eps = list.reduce((a, d) => a + watchedEpisodes(d), 0)
-    const minutes = list.reduce((a, d) => a + watchedEpisodes(d) * (d.episodeRuntime ?? 60), 0)
+    const minutes = list.reduce((a, d) => a + watchedEpisodes(d) * (d.episodeRuntime ?? DEFAULT_RUNTIME), 0)
+    // Dramen mit gesehenen Folgen, aber ohne bekannte Episodenlänge → Stunden sind geschätzt
+    const guessed = list.filter((d) => !d.episodeRuntime && watchedEpisodes(d) > 0).length
+    const rewatches = list.reduce((a, d) => a + (d.rewatchCount ?? 0), 0)
+    const perMonth = episodesPerMonth(list)
+    const hasLog = perMonth.some((m) => m.value > 0)
     const rated = list.filter((d) => overall(d) !== undefined)
     const avg = rated.length ? rated.reduce((a, d) => a + overall(d)!, 0) / rated.length : undefined
     const byStatus = STATUS_ORDER.map((st) => ({ name: STATUS_LABELS[st], value: list.filter((d) => d.status === st).length }))
@@ -35,12 +39,30 @@ export default function Stats() {
     const platforms = count(list.map((d) => d.platform).filter((x): x is string => !!x))
     const top = [...rated].sort((a, b) => overall(b)! - overall(a)!).slice(0, 10)
     const perYear = count(list.filter((d) => d.finishedAt).map((d) => d.finishedAt!.slice(0, 4))).sort((a, b) => a.name.localeCompare(b.name))
-    const cats = RATING_KEYS.map((k) => {
-      const v = list.map((d) => d.ratings[k]).filter((x): x is number => x !== undefined)
-      return { name: DEFAULT_RATING_LABELS[k], value: v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : 0, n: v.length }
-    }).filter((c) => c.n > 0)
-    return { eps, minutes, avg, byStatus, genres, actors, platforms, top, perYear, cats, completed: list.filter((d) => d.status === 'completed').length }
-  }, [dramas])
+    const cats = categories
+      .map(({ key, label }) => {
+        const v = list.map((d) => d.ratings[key]).filter((x): x is number => x !== undefined)
+        return { name: label, value: v.length ? Math.round((v.reduce((a, b) => a + b, 0) / v.length) * 10) / 10 : 0, n: v.length }
+      })
+      .filter((c) => c.n > 0)
+    return {
+      eps,
+      minutes,
+      guessed,
+      rewatches,
+      perMonth,
+      hasLog,
+      avg,
+      byStatus,
+      genres,
+      actors,
+      platforms,
+      top,
+      perYear,
+      cats,
+      completed: list.filter((d) => d.status === 'completed').length,
+    }
+  }, [dramas, categories])
 
   if (!dramas) return null
   if (!dramas.length)
@@ -58,8 +80,13 @@ export default function Stats() {
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Tile label="Dramen insgesamt" value={dramas.length} />
-        <Tile label="Fertig geschaut" value={s.completed} />
-        <Tile label="Episoden gesehen" value={s.eps} sub={`≈ ${hours} Stunden (${(hours / 24).toFixed(1)} Tage)`} />
+        <Tile label="Fertig geschaut" value={s.completed} sub={s.rewatches ? `dazu ${s.rewatches}× erneut geschaut` : undefined} />
+        <Tile
+          label="Episoden gesehen"
+          value={s.eps}
+          sub={`≈ ${hours} Stunden (${(hours / 24).toFixed(1)} Tage)${s.guessed ? ' · geschätzt' : ''}`}
+          title={s.guessed ? `Bei ${s.guessed} Dramen ist die Episodenlänge unbekannt – dort sind ${DEFAULT_RUNTIME} Minuten angenommen.` : undefined}
+        />
         <Tile label="Ø Bewertung" value={fmtRating(s.avg && Math.round(s.avg * 10) / 10)} sub={`${songs?.length ?? 0} OST-Songs gespeichert`} />
       </div>
 
@@ -69,6 +96,7 @@ export default function Stats() {
         {s.cats.length > 0 && <ChartCard title="Ø Note pro Kategorie" data={s.cats} max={10} unit=" / 10" />}
         {s.platforms.length > 0 && <ChartCard title="Plattformen" data={s.platforms} />}
         {s.perYear.length > 0 && <ColumnCard title="Fertig geschaut pro Jahr" data={s.perYear} />}
+        {s.hasLog && <ColumnCard title="Episoden pro Monat" data={s.perMonth} unit="Episoden" note="Gezählt werden Folgen, die du mit „+1“ abgehakt hast." />}
 
         {s.actors.length > 0 && (
           <section className="card p-5">
@@ -105,9 +133,9 @@ export default function Stats() {
   )
 }
 
-function Tile({ label, value, sub }: { label: string; value: number | string; sub?: string }) {
+function Tile({ label, value, sub, title }: { label: string; value: number | string; sub?: string; title?: string }) {
   return (
-    <div className="card p-4">
+    <div className="card p-4" title={title}>
       <div className="text-xs font-bold tracking-wide text-stone-500 uppercase dark:text-rose-100/60">{label}</div>
       <div className="mt-1 text-3xl font-extrabold tabular-nums">{value}</div>
       {sub && <div className="mt-0.5 text-xs text-stone-500 dark:text-rose-100/60">{sub}</div>}
@@ -141,17 +169,18 @@ function ChartCard({ title, data, max, unit = '' }: { title: string; data: { nam
   )
 }
 
-function ColumnCard({ title, data }: { title: string; data: { name: string; value: number }[] }) {
+function ColumnCard({ title, data, unit = 'Dramen', note }: { title: string; data: { name: string; value: number }[]; unit?: string; note?: string }) {
   return (
     <section className="card p-5">
       <h2 className="h-display mb-3 text-lg font-bold">{title}</h2>
+      {note && <p className="-mt-2 mb-2 text-xs text-stone-500 dark:text-rose-100/60">{note}</p>}
       <div style={{ height: 220 }}>
         <ResponsiveContainer>
           <BarChart data={data} margin={{ left: -20, right: 8, top: 16, bottom: 0 }}>
             <CartesianGrid vertical={false} stroke="currentColor" strokeOpacity={0.08} />
             <XAxis dataKey="name" tickLine={false} axisLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} />
             <YAxis allowDecimals={false} tickLine={false} axisLine={false} tick={{ fill: 'currentColor', fontSize: 12 }} />
-            <Tooltip {...tooltipStyle} formatter={(v) => [`${v} Dramen`, '']} separator="" />
+            <Tooltip {...tooltipStyle} formatter={(v) => [`${v} ${unit}`, '']} separator="" />
             <Bar dataKey="value" fill={BAR} radius={[4, 4, 0, 0]} maxBarSize={40} label={{ position: 'top', fill: 'currentColor', fontSize: 12, fontWeight: 700 }} />
           </BarChart>
         </ResponsiveContainer>
