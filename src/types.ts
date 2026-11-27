@@ -74,6 +74,8 @@ export interface Settings {
   updateSnoozedVersion?: string
   /** Diese Update-Version wurde übersprungen */
   skippedUpdateVersion?: string
+  /** Beim Speichern automatisch eine OST von YouTube hinterlegen (leer = an) */
+  autoOst?: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {}

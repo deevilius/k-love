@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useNavigate, useParams } from 'react-router-dom'
 import { emptyDrama, saveDrama, useDrama, useDramas } from '../db/repo'
 import { DEFAULT_RATING_LABELS, PLATFORMS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama } from '../types'
-import { completeCandidate, searchFreePosters, type PosterCandidate } from '../lib/freePosters'
+import { bestMatch, completeCandidate, searchFreePosters, type PosterCandidate } from '../lib/freePosters'
+import { ensureOst } from '../lib/autoOst'
 import { avgRating, fmtRating, today } from '../lib/util'
 import { Poster, RatingHearts, TagInput } from '../components/ui'
 
@@ -30,6 +31,8 @@ export default function DramaForm() {
     else blocker.reset()
   }, [blocker])
 
+  const poster = useAutoPoster(d, setD)
+
   if (id && existing === undefined && !d) return null
   if (!d) return <p>Drama nicht gefunden.</p>
 
@@ -44,6 +47,8 @@ export default function DramaForm() {
     if (next.status === 'completed' && !next.finishedAt && existing?.status !== 'completed') next.finishedAt = today()
     if (next.status === 'watching' && !next.startedAt) next.startedAt = today()
     await saveDrama(next)
+    // OST im Hintergrund suchen – Speichern wartet nicht darauf
+    void ensureOst(next).catch(() => {})
     saving.current = true
     nav(`/drama/${d.id}`, { replace: true })
   }
@@ -57,27 +62,16 @@ export default function DramaForm() {
         </Link>
       </div>
 
-      <FreePosterSearch
-        title={d.title}
-        onPick={(info, title) =>
-          setD((cur) => {
-            if (!cur) return cur
-            const next: Drama = { ...cur, posterUrl: info.posterUrl ?? cur.posterUrl, title: cur.title.trim() ? cur.title : title }
-            // übrige Angaben nur ergänzen, nichts Eigenes überschreiben
-            for (const [k, v] of Object.entries(info) as [keyof Drama, unknown][]) {
-              const old = next[k]
-              const empty = old === undefined || old === '' || (Array.isArray(old) && old.length === 0)
-              if (empty && v !== undefined && !(Array.isArray(v) && v.length === 0)) (next as unknown as Record<string, unknown>)[k] = v
-            }
-            return next
-          })
-        }
-      />
-
       <div className="card grid gap-5 p-5 sm:grid-cols-[160px_1fr]">
-        <div className="space-y-2">
+        <div className="space-y-1 text-center">
           <Poster drama={d} className="w-full shadow-md" />
-          <input className="input text-xs" placeholder="Poster-URL (optional)" value={d.posterUrl ?? ''} onChange={(e) => set('posterUrl', e.target.value || undefined)} />
+          {poster.status === 'searching' && <p className="text-xs text-stone-500 dark:text-rose-100/60">🔎 Suche Poster …</p>}
+          {poster.status === 'none' && <p className="text-xs text-stone-500 dark:text-rose-100/60">Kein Poster gefunden – englische Titel klappen am besten.</p>}
+          {poster.canCycle && (
+            <button type="button" className="btn-ghost w-full text-xs" onClick={poster.next}>
+              🔄 Anderes Poster
+            </button>
+          )}
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
@@ -193,81 +187,113 @@ export default function DramaForm() {
   )
 }
 
-/** Poster-Suche ohne API-Schlüssel (TVmaze + Wikipedia) */
-function FreePosterSearch({ title, onPick }: { title: string; onPick: (info: Partial<Drama>, title: string) => void }) {
-  const [q, setQ] = useState('')
-  const [results, setResults] = useState<PosterCandidate[] | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [picked, setPicked] = useState<string | null>(null)
-  const [err, setErr] = useState('')
 
-  const search = async (query = q || title) => {
-    if (!query.trim()) return
-    setQ(query)
-    setBusy(true)
-    setErr('')
+const isEmpty = (v: unknown) => v === undefined || v === '' || (Array.isArray(v) && v.length === 0)
+const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b)
+
+/** Bester Treffer, sonst erste koreanische Serie, sonst irgendein Treffer */
+const firstChoice = (list: PosterCandidate[], title: string, year?: number) => bestMatch(list, title, year) ?? list.find((c) => c.korean) ?? list[0]
+
+/**
+ * Sucht beim Tippen des Titels automatisch ein Poster (TVmaze + Wikipedia, ohne API-Schlüssel)
+ * und ergänzt leere Angaben wie Jahr, Genres und Episoden.
+ * Angaben, die nur aus einem früheren Treffer stammen, werden beim nächsten Treffer ersetzt –
+ * was du selbst eingetragen oder geändert hast, bleibt.
+ */
+function useAutoPoster(d: Drama | null, setD: (d: Drama) => void) {
+  const [cands, setCands] = useState<PosterCandidate[]>([])
+  const [status, setStatus] = useState<'idle' | 'searching' | 'none'>('idle')
+  const latest = useRef(d)
+  latest.current = d
+  /** Titel, für den zuletzt gesucht wurde (null = Formular noch nicht geladen) */
+  const searchedFor = useRef<string | null>(null)
+  /** Werte, die der letzte Treffer automatisch eingetragen hat */
+  const filled = useRef<Partial<Record<keyof Drama, unknown>>>({})
+  const req = useRef(0)
+  const title = d?.title.trim() ?? ''
+  const loaded = !!d
+
+  const apply = async (c: PosterCandidate, n: number) => {
+    let info: Partial<Drama>
     try {
-      setResults(await searchFreePosters(query.trim()))
+      info = await completeCandidate(c)
     } catch {
-      setErr('Die Suche hat nicht geklappt – bist du mit dem Internet verbunden? Versuch es gleich nochmal.')
-    } finally {
-      setBusy(false)
+      info = c.info
     }
+    const cur = latest.current
+    if (n !== req.current || !cur) return
+    const next = { ...cur, posterUrl: c.posterUrl } as unknown as Record<string, unknown>
+    const nextFilled: Record<string, unknown> = {}
+    const keys = new Set([...Object.keys(info), ...Object.keys(filled.current)])
+    keys.delete('posterUrl')
+    for (const k of keys) {
+      const old = next[k]
+      const prev = (filled.current as Record<string, unknown>)[k]
+      const fromAuto = prev !== undefined && same(old, prev)
+      if (!isEmpty(old) && !fromAuto) continue // selbst eingetragen → nicht anfassen
+      const v = (info as Record<string, unknown>)[k]
+      if (!isEmpty(v)) {
+        next[k] = v
+        nextFilled[k] = v
+      } else if (fromAuto) {
+        next[k] = Array.isArray(old) ? [] : undefined
+      }
+    }
+    filled.current = nextFilled
+    setD(next as unknown as Drama)
   }
 
-  const pick = async (c: PosterCandidate) => {
-    setPicked(c.key)
-    try {
-      onPick(await completeCandidate(c), c.title)
-    } catch {
-      // Details nicht ladbar → wenigstens das Poster übernehmen
-      onPick({ posterUrl: c.posterUrl, year: c.year }, c.title)
+  useEffect(() => {
+    if (!loaded) return
+    // Beim Bearbeiten: vorhandenes Poster bleibt, solange der Titel gleich bleibt
+    if (searchedFor.current === null) searchedFor.current = latest.current?.posterUrl ? title : ''
+    const n = ++req.current
+    if (!title || title === searchedFor.current) {
+      setStatus('idle')
+      return
     }
+    setStatus('searching')
+    const t = setTimeout(async () => {
+      try {
+        const list = await searchFreePosters(title)
+        if (n !== req.current) return
+        searchedFor.current = title
+        setCands(list)
+        setStatus(list.length ? 'idle' : 'none')
+        if (!list.length) return
+        // ein automatisch eingetragenes Jahr nicht als Suchhilfe verwenden
+        const year = latest.current?.year
+        const yearIsAuto = filled.current.year !== undefined && same(year, filled.current.year)
+        await apply(firstChoice(list, title, yearIsAuto ? undefined : year), n)
+      } catch {
+        if (n === req.current) setStatus('idle')
+      }
+    }, 800)
+    return () => clearTimeout(t)
+  }, [title, loaded])
+
+  /** Nächstes Poster aus der Trefferliste (lädt die Liste beim ersten Klick, falls noch nicht gesucht wurde) */
+  const next = async () => {
+    const n = ++req.current
+    let list = cands
+    if (!list.length) {
+      setStatus('searching')
+      try {
+        list = await searchFreePosters(title)
+      } catch {
+        list = []
+      }
+      if (n !== req.current) return
+      searchedFor.current = title
+      setCands(list)
+      setStatus(list.length ? 'idle' : 'none')
+    }
+    const cur = latest.current
+    if (!list.length || !cur) return
+    const i = list.findIndex((c) => c.posterUrl === cur.posterUrl)
+    setD({ ...cur, posterUrl: list[(i + 1) % list.length].posterUrl })
   }
 
-  return (
-    <div className="card space-y-3 p-4">
-      <div className="flex gap-2">
-        <input
-          className="input"
-          placeholder={title ? `🖼️ Poster suchen für „${title}“` : '🖼️ Poster suchen, z. B. „Crash Landing on You“'}
-          value={q}
-          onChange={(e) => setQ(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              void search()
-            }
-          }}
-        />
-        <button type="button" className="btn-primary" onClick={() => search()} disabled={busy || !(q || title).trim()}>
-          {busy ? '…' : 'Suchen'}
-        </button>
-      </div>
-      <p className="text-xs text-stone-500 dark:text-rose-100/60">Tipp: Englische Titel finden am meisten. Klick auf ein Poster übernimmt es (plus Jahr, Genres, Episoden, wenn noch leer).</p>
-      {err && <p className="text-sm text-red-600">{err}</p>}
-      {results && results.length === 0 && <p className="text-sm text-stone-500">Kein Poster gefunden 🥲 – probier den englischen Titel oder füge unten eine Bild-URL ein.</p>}
-      {results && results.length > 0 && (
-        <div className="grid max-h-[26rem] grid-cols-3 gap-3 overflow-y-auto p-1 sm:grid-cols-5">
-          {results.map((c) => (
-            <button
-              type="button"
-              key={c.key}
-              onClick={() => pick(c)}
-              className={
-                'group rounded-xl p-1 text-left transition hover:bg-rose-50 dark:hover:bg-white/5 ' +
-                (picked === c.key ? 'ring-3 ring-pink-500' : '')
-              }
-            >
-              <img src={c.posterUrl} alt={c.title} loading="lazy" className="aspect-[2/3] w-full rounded-lg object-cover shadow group-hover:shadow-md" />
-              <div className="mt-1 line-clamp-2 text-xs leading-tight font-bold">{c.title}</div>
-              <div className="text-[10px] text-stone-500 dark:text-rose-100/60">
-                {[c.year, c.source, c.korean && '🇰🇷'].filter(Boolean).join(' · ')}
-              </div>
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  )
+  const canCycle = !!title && status !== 'searching' && (cands.length > 1 || (cands.length === 0 && status === 'idle' && !!d?.posterUrl))
+  return { status, canCycle, next }
 }

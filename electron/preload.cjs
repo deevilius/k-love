@@ -4,6 +4,13 @@ contextBridge.exposeInMainWorld('klove', {
   getVersion: () => ipcRenderer.invoke('klove:version'),
   checkForUpdates: () => ipcRenderer.invoke('klove:check-updates'),
   diagnostics: () => ipcRenderer.invoke('klove:diagnostics'),
+  adblock: {
+    get: () => ipcRenderer.invoke('klove:adblock-get'),
+    set: (enabled) => ipcRenderer.invoke('klove:adblock-set', !!enabled),
+  },
+  youtube: {
+    findOst: (title) => ipcRenderer.invoke('klove:youtube-find-ost', title),
+  },
   update: {
     getState: () => ipcRenderer.invoke('klove:update-get-state'),
     download: () => ipcRenderer.invoke('klove:update-download'),

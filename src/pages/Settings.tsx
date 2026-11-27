@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
-import { allDramas, updateDrama } from '../db/repo'
+import { allDramas, allSongs, saveSettings, updateDrama, useSettings } from '../db/repo'
+import { canFindOst, ensureOst } from '../lib/autoOst'
 import { bestMatch, completeCandidate, searchFreePosters } from '../lib/freePosters'
 import { BackupSection } from '../components/BackupSection'
 import { openFeedback } from '../lib/diagnostics'
@@ -21,6 +22,7 @@ export default function SettingsPage() {
       <h1 className="h-display text-2xl font-bold">Einstellungen</h1>
       <BackupSection />
       <PosterSection />
+      <OstSection />
       <MusicSection />
       <AppSection />
     </div>
@@ -153,6 +155,71 @@ function PosterSection() {
       <p className={muted}>Sucht für alle Dramen ohne Bild automatisch ein Poster und ergänzt fehlende Infos.</p>
       <button className="btn-primary" onClick={fillMissing} disabled={!!fill}>
         {fill ? `Suche … ${fill.done}/${fill.total}` : '🖼️ Fehlende Poster laden'}
+      </button>
+    </section>
+  )
+}
+
+function OstSection() {
+  const settings = useSettings()
+  const [fill, setFill] = useState<{ done: number; total: number } | null>(null)
+  const [adblock, setAdblock] = useState<boolean | null>(null)
+  useEffect(() => {
+    window.klove?.adblock?.get().then(setAdblock)
+  }, [])
+  if (!canFindOst()) return null
+
+  const fillMissing = async () => {
+    const [dramas, songs] = await Promise.all([allDramas(), allSongs()])
+    const withSongs = new Set(songs.map((s) => s.dramaId))
+    const missing = dramas.filter((d) => !withSongs.has(d.id))
+    if (!missing.length) return alert('Alle Dramen haben bereits Songs. 🎉')
+    if (!confirm(`${missing.length} Dramen ohne Songs gefunden. Jetzt auf YouTube nach einer OST suchen?\n\nEs wird jeweils eine OST-Playlist hinterlegt, sonst ein OST-Video.`)) return
+    const notFound: string[] = []
+    setFill({ done: 0, total: missing.length })
+    for (const [i, d] of missing.entries()) {
+      try {
+        if (!(await ensureOst(d, { force: true }))) notFound.push(d.title)
+      } catch {
+        notFound.push(d.title)
+      }
+      setFill({ done: i + 1, total: missing.length })
+      await new Promise((r) => setTimeout(r, 400)) // freundlich zu YouTube
+    }
+    setFill(null)
+    alert(
+      notFound.length
+        ? `Fertig! Keine OST gefunden für:\n• ${notFound.join('\n• ')}\n\nDiese kannst du auf der Drama-Seite unter „➕ Song“ selbst eintragen.`
+        : 'Fertig! Alle OSTs hinterlegt 🎉',
+    )
+  }
+
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="h-display text-lg font-bold">🎶 OST & YouTube</h2>
+      <label className="flex items-center gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="h-4 w-4 accent-pink-600"
+          checked={settings.autoOst !== false}
+          onChange={(e) => saveSettings({ autoOst: e.target.checked })}
+        />
+        Beim Speichern automatisch eine OST hinterlegen (wenn das Drama noch keine Songs hat)
+      </label>
+      {adblock !== null && (
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-pink-600"
+            checked={adblock}
+            onChange={async (e) => setAdblock(await window.klove!.adblock.set(e.target.checked))}
+          />
+          Werbung in YouTube-Videos blockieren
+        </label>
+      )}
+      <p className={muted}>Sucht für alle Dramen ohne Songs eine OST-Playlist auf YouTube.</p>
+      <button className="btn-primary" onClick={fillMissing} disabled={!!fill}>
+        {fill ? `Suche … ${fill.done}/${fill.total}` : '🎶 Fehlende OSTs laden'}
       </button>
     </section>
   )
