@@ -33,7 +33,9 @@
     "vite": "^8.4.0"
   },
   "overrides": {
-    "minimatch@>=7.0.0 <11.0.1": "^11.0.1"
+    "minimatch@>=7.0.0 <11.0.1": "^11.0.1",
+    "@electron/asar": "^4.3.4",
+    "global-agent": "^4.1.8"
   },
   "allowScripts": {
     "electron-winstaller": false
