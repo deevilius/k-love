@@ -4,6 +4,23 @@ import { cx, fmtRating, overall } from '../lib/util'
 import { stepEpisode } from '../db/repo'
 import { toast } from './Dialogs'
 
+/** Schließt ein offenes Menü/Popover bei Klick außerhalb von `ref` oder bei Esc */
+export function useDismiss(ref: React.RefObject<HTMLElement | null>, open: boolean, close: () => void) {
+  const closeRef = useRef(close)
+  closeRef.current = close
+  useEffect(() => {
+    if (!open) return
+    const onDown = (e: MouseEvent) => !ref.current?.contains(e.target as Node) && closeRef.current()
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && closeRef.current()
+    document.addEventListener('mousedown', onDown)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDown)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open, ref])
+}
+
 /**
  * Bilder aus dem Netz laufen in der Desktop-App über den lokalen Bild-Zwischenspeicher
  * (klove-img://) – so bleiben Poster auch offline und nach Änderungen beim Anbieter erhalten.

@@ -3,7 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { useDramas } from '../db/repo'
 import { STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
 import { cx, fmtRating, overall } from '../lib/util'
-import { Empty, EpisodeStepper, Poster, Progress, ScoreBubble, StatusBadge } from '../components/ui'
+import { Empty, EpisodeStepper, Poster, Progress, ScoreBubble, StatusBadge, useDismiss } from '../components/ui'
 import CoupleArt from '../components/CoupleArt'
 
 type Sort = 'updated' | 'title' | 'rating' | 'year' | 'added'
@@ -124,11 +124,12 @@ export default function Library() {
 
   return (
     <div className="space-y-5">
-      <section className="card relative flex items-center gap-2 overflow-hidden bg-gradient-to-br from-pink-100/80 via-white/70 to-purple-100/80 p-3 sm:gap-6 sm:p-5 dark:from-pink-900/30 dark:via-white/5 dark:to-purple-900/30">
-        <CoupleArt className="w-40 shrink-0 sm:w-64" />
-        <div className="min-w-0 space-y-1.5">
-          <p className="h-display text-sm font-bold text-pink-600 dark:text-pink-300">안녕하세요!</p>
-          <h1 className="h-display text-xl leading-tight font-bold sm:text-3xl">Willkommen in deiner K-Drama-Welt</h1>
+      <section className="flex items-center gap-3">
+        <CoupleArt className="hidden w-20 shrink-0 sm:block" />
+        <div className="min-w-0">
+          <h1 className="h-display text-xl leading-tight font-bold sm:text-2xl">
+            <span className="text-pink-600 dark:text-pink-300">안녕하세요!</span> Deine K-Dramen
+          </h1>
           <p className="text-sm text-stone-600 dark:text-rose-100/70">
             {counts.all} Dramen · {counts.completed ?? 0} fertig geschaut
             {watching.length > 0 && ` · ${watching.length} gerade dran`}
@@ -138,7 +139,9 @@ export default function Library() {
 
       {watching.length > 0 && status === 'all' && !q && (
         <section>
-          <h2 className="h-display mb-2 text-lg font-bold">Schaue gerade 🍿</h2>
+          <h2 className="h-display mb-2 text-lg font-bold">
+            Schaue gerade 🍿 <span className="text-sm font-semibold text-stone-500 dark:text-rose-100/60">{watching.length}</span>
+          </h2>
           <div className="-mx-4 flex snap-x gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:px-0">
             {watching.map((d) => (
               <Link key={d.id} to={`/drama/${d.id}`} className="card flex w-72 shrink-0 snap-start gap-3 p-2.5 transition hover:-translate-y-0.5 hover:shadow-md">
@@ -160,27 +163,27 @@ export default function Library() {
         </section>
       )}
 
-      <section className="card space-y-3 p-3">
-        <div className="flex flex-wrap gap-2">
+      <section className="sticky top-[3.75rem] z-20 -mx-4 space-y-2 border-b border-rose-100/70 bg-rose-50/85 px-4 py-2 backdrop-blur sm:-mx-6 sm:px-6 dark:border-white/5 dark:bg-[#1a1220]/85">
+        <div className="flex gap-2">
           <input
             ref={searchRef}
             id={LIBRARY_SEARCH_ID}
             type="search"
             aria-label="Bibliothek durchsuchen"
-            className="input min-w-48 flex-1"
+            className="input min-w-0 flex-1"
             placeholder="🔍 Titel, Schauspieler, Notizen … (Strg+F)"
             value={q}
             onChange={(e) => setQ(e.target.value)}
             onKeyDown={(e) => e.key === 'Escape' && setQ('')}
           />
-          <select aria-label="Sortierung" className="input w-auto" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
+          <select aria-label="Sortierung" title="Sortierung" className="input hidden w-auto sm:block" value={sort} onChange={(e) => setSort(e.target.value as Sort)}>
             {Object.entries(SORT_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
               </option>
             ))}
           </select>
-          <div className="flex rounded-full border border-rose-200 p-0.5 dark:border-white/15" role="group" aria-label="Ansicht">
+          <div className="flex shrink-0 rounded-full border border-rose-200 p-0.5 dark:border-white/15" role="group" aria-label="Ansicht">
             {(['grid', 'list'] as View[]).map((v) => (
               <button
                 key={v}
@@ -194,56 +197,51 @@ export default function Library() {
               </button>
             ))}
           </div>
+          <MoreFilters
+            sort={sort}
+            setSort={setSort}
+            favOnly={favOnly}
+            setFavOnly={setFavOnly}
+            genre={genre}
+            setGenre={setGenre}
+            genres={genres}
+            platform={platform}
+            setPlatform={setPlatform}
+            platforms={platforms}
+          />
         </div>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="-mx-4 flex items-center gap-1.5 overflow-x-auto px-4 pb-0.5 sm:mx-0 sm:px-0">
           {(['all', ...STATUS_ORDER] as const).map((s) => (
             <button
               key={s}
               aria-pressed={status === s}
               onClick={() => setStatus(s)}
               className={cx(
-                'rounded-full px-3 py-1 text-xs font-bold transition',
+                'shrink-0 rounded-full px-3 py-1 text-xs font-bold whitespace-nowrap transition',
                 status === s ? 'bg-pink-600 text-white' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-white/10 dark:text-rose-100',
               )}
             >
               {s === 'all' ? 'Alle' : STATUS_LABELS[s]} <span className="opacity-70">{counts[s] ?? 0}</span>
             </button>
           ))}
-          <button
-            aria-pressed={favOnly}
-            onClick={() => setFavOnly(!favOnly)}
-            className={cx('rounded-full px-3 py-1 text-xs font-bold', favOnly ? 'bg-pink-600 text-white' : 'bg-rose-100 text-rose-700 dark:bg-white/10 dark:text-rose-100')}
-          >
-            ⭐ Favoriten
-          </button>
-          {genres.length > 0 && (
-            <select aria-label="Genre" className="input w-auto py-1 text-xs" value={genre} onChange={(e) => setGenre(e.target.value)}>
-              <option value="">Alle Genres</option>
-              {genres.map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </select>
-          )}
-          {platforms.length > 0 && (
-            <select aria-label="Plattform" className="input w-auto py-1 text-xs" value={platform} onChange={(e) => setPlatform(e.target.value)}>
-              <option value="">Alle Plattformen</option>
-              {platforms.map((p) => (
-                <option key={p}>{p}</option>
-              ))}
-            </select>
-          )}
           {filtered && (
-            <button className="btn-ghost px-3 py-1 text-xs" onClick={() => setFilters(NO_FILTERS)}>
-              ✕ Filter zurücksetzen
+            <button className="btn-ghost ml-auto shrink-0 px-3 py-1 text-xs whitespace-nowrap" onClick={() => setFilters(NO_FILTERS)}>
+              ✕ Zurücksetzen
             </button>
           )}
         </div>
       </section>
 
+      {filtered && list.length > 0 && (
+        <p className="text-sm text-stone-500 dark:text-rose-100/60">
+          {list.length} von {counts.all} Dramen
+        </p>
+      )}
+
       {list.length === 0 ? (
         <p className="py-10 text-center text-stone-500">Keine Treffer 🥲</p>
       ) : view === 'grid' ? (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
           {list.map((d) => (
             <Link key={d.id} to={`/drama/${d.id}`} className="group">
               <div className="relative transition group-hover:-translate-y-1">
@@ -253,7 +251,9 @@ export default function Library() {
                 <StatusBadge status={d.status} className="absolute bottom-2 left-2 shadow" />
               </div>
               <div className="mt-2 px-0.5">
-                <div className="line-clamp-2 leading-tight font-bold">{d.title}</div>
+                <div className="truncate leading-tight font-bold" title={d.title}>
+                  {d.title}
+                </div>
                 <div className="text-xs text-stone-500 dark:text-rose-100/60">{[d.year, d.platform].filter(Boolean).join(' · ')}</div>
               </div>
             </Link>
@@ -277,6 +277,90 @@ export default function Library() {
               <span className="w-12 text-right font-extrabold text-pink-600 tabular-nums dark:text-pink-300">{fmtRating(overall(d))}</span>
             </Link>
           ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** „Filter“-Knopf mit Popover für seltener gebrauchte Filter (und Sortierung auf schmalen Bildschirmen) */
+function MoreFilters(p: {
+  sort: Sort
+  setSort: (s: Sort) => void
+  favOnly: boolean
+  setFavOnly: (v: boolean) => void
+  genre: string
+  setGenre: (v: string) => void
+  genres: string[]
+  platform: string
+  setPlatform: (v: string) => void
+  platforms: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
+  useDismiss(box, open, () => setOpen(false))
+  const active = [p.favOnly, p.genre, p.platform].filter(Boolean).length
+
+  return (
+    <div ref={box} className="relative shrink-0">
+      <button
+        type="button"
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        onClick={() => setOpen(!open)}
+        className={cx('btn h-full border px-3', active ? 'border-pink-600 bg-pink-600 text-white' : 'border-rose-200 text-stone-600 hover:bg-rose-100 dark:border-white/15 dark:text-rose-100 dark:hover:bg-white/10')}
+      >
+        <span aria-hidden>🎛️</span>
+        <span className="hidden sm:inline">Filter</span>
+        {active > 0 && <span className="grid h-5 min-w-5 place-items-center rounded-full bg-white px-1 text-xs text-pink-700">{active}</span>}
+      </button>
+      {open && (
+        <div className="absolute top-full right-0 z-50 mt-1.5 w-64 space-y-3 rounded-xl border border-rose-100 bg-white p-3 text-sm shadow-xl dark:border-white/10 dark:bg-[#251a2c]">
+          <label className="block space-y-1 sm:hidden">
+            <span className="text-xs font-bold text-stone-500 dark:text-rose-100/60">Sortierung</span>
+            <select className="input" value={p.sort} onChange={(e) => p.setSort(e.target.value as Sort)}>
+              {Object.entries(SORT_LABELS).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex cursor-pointer items-center gap-2 font-semibold">
+            <input type="checkbox" className="h-4 w-4 accent-pink-600" checked={p.favOnly} onChange={(e) => p.setFavOnly(e.target.checked)} />
+            ⭐ Nur Favoriten
+          </label>
+          {p.genres.length > 0 && (
+            <label className="block space-y-1">
+              <span className="text-xs font-bold text-stone-500 dark:text-rose-100/60">Genre</span>
+              <select className="input" value={p.genre} onChange={(e) => p.setGenre(e.target.value)}>
+                <option value="">Alle Genres</option>
+                {p.genres.map((g) => (
+                  <option key={g}>{g}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {p.platforms.length > 0 && (
+            <label className="block space-y-1">
+              <span className="text-xs font-bold text-stone-500 dark:text-rose-100/60">Plattform</span>
+              <select className="input" value={p.platform} onChange={(e) => p.setPlatform(e.target.value)}>
+                <option value="">Alle Plattformen</option>
+                {p.platforms.map((x) => (
+                  <option key={x}>{x}</option>
+                ))}
+              </select>
+            </label>
+          )}
+          {active > 0 && (
+            <button
+              type="button"
+              className="btn-ghost w-full py-1 text-xs"
+              onClick={() => (p.setFavOnly(false), p.setGenre(''), p.setPlatform(''))}
+            >
+              ✕ Diese Filter zurücksetzen
+            </button>
+          )}
         </div>
       )}
     </div>

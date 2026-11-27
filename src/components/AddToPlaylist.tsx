@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { addToPlaylist, createPlaylist, usePlaylists } from '../db/repo'
 import { cx } from '../lib/util'
+import { useDismiss } from './ui'
 
 /** Knopf „➕ Playlist“ mit Menü: vorhandene Playlist wählen oder neue anlegen */
 export function AddToPlaylist({
@@ -22,17 +23,7 @@ export function AddToPlaylist({
   const [msg, setMsg] = useState('')
   const box = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    const close = (e: MouseEvent) => !box.current?.contains(e.target as Node) && setOpen(false)
-    const esc = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false)
-    document.addEventListener('mousedown', close)
-    document.addEventListener('keydown', esc)
-    return () => {
-      document.removeEventListener('mousedown', close)
-      document.removeEventListener('keydown', esc)
-    }
-  }, [open])
+  useDismiss(box, open, () => setOpen(false))
 
   useEffect(() => {
     if (!msg) return
