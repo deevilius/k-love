@@ -1,6 +1,6 @@
 # K-Love 💗 – Meine K-Dramen
 
-Windows-App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit OST-Player (YouTube/Spotify), eigenen Musik-Playlists, Excel-Import/-Export, Postern und Statistiken.
+Windows-App zum Sammeln, Bewerten und Verfolgen von K-Dramen – mit Empfehlungen passend zu den eigenen Bewertungen (Entdecken), OST-Player (YouTube/Spotify), eigenen Musik-Playlists, automatischen Postern und Statistiken.
 
 ## Installieren
 
