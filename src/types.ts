@@ -10,15 +10,23 @@ export const STATUS_LABELS: Record<WatchStatus, string> = {
 
 export const STATUS_ORDER: WatchStatus[] = ['watching', 'watchlist', 'completed', 'on-hold', 'dropped']
 
-export type RatingKey = 'story' | 'acting' | 'chemistry' | 'ost' | 'ending'
-export const RATING_KEYS: RatingKey[] = ['story', 'acting', 'chemistry', 'ost', 'ending']
-export const DEFAULT_RATING_LABELS: Record<RatingKey, string> = {
-  story: 'Story',
-  acting: 'Schauspiel',
-  chemistry: 'Chemie',
-  ost: 'OST',
-  ending: 'Ende',
+/** Schlüssel einer Bewertungskategorie – die fünf Standards oder eigene (c_…) */
+export type RatingKey = string
+
+export interface RatingCategory {
+  key: RatingKey
+  label: string
 }
+
+export const DEFAULT_RATING_CATEGORIES: RatingCategory[] = [
+  { key: 'story', label: 'Story' },
+  { key: 'acting', label: 'Schauspiel' },
+  { key: 'chemistry', label: 'Chemie' },
+  { key: 'ost', label: 'OST' },
+  { key: 'ending', label: 'Ende' },
+]
+
+export const MAX_RATING_CATEGORIES = 10
 
 export type Ratings = Partial<Record<RatingKey, number>>
 
@@ -46,8 +54,19 @@ export interface Drama {
   favorite: boolean
   notes?: string
   tags: string[]
+  /** Wie oft nach dem ersten Durchgang erneut geschaut */
+  rewatchCount?: number
+  /** Über „+1 Folge“ erfasste Episoden pro Tag (JJJJ-MM-TT → Anzahl) */
+  watchLog?: Record<string, number>
   createdAt: string
   updatedAt: string
+}
+
+/** Merkt sich Löschungen, damit Zusammenführen sie nicht wieder zurückholt */
+export interface Tombstone {
+  kind: 'drama' | 'song' | 'playlist'
+  id: string
+  at: string
 }
 
 export type SongSource = 'youtube' | 'spotify' | 'other'
@@ -60,6 +79,8 @@ export interface Song {
   url: string
   source: SongSource
   order: number
+  /** fehlt bei Songs aus älteren Versionen */
+  updatedAt?: string
 }
 
 /** Eigene Playlist aus einzelnen (YouTube-)Songs */
@@ -87,6 +108,8 @@ export interface Settings {
   autoOst?: boolean
   /** Eigene Streaming-Anbieter für die Entdecken-Seite (leer = alle) */
   streamingProviders?: string[]
+  /** Eigene Bewertungskategorien (leer = die fünf Standards) */
+  ratingCategories?: RatingCategory[]
 }
 
 export const DEFAULT_SETTINGS: Settings = {}

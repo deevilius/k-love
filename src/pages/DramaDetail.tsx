@@ -1,14 +1,16 @@
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { deleteDrama, updateDrama, useDrama } from '../db/repo'
-import { DEFAULT_RATING_LABELS, RATING_KEYS, STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
-import { fmtRating, overall, today } from '../lib/util'
-import { Poster, RatingHearts } from '../components/ui'
+import { deleteDrama, startRewatch, updateDrama, useDrama, useRatingCategories } from '../db/repo'
+import { STATUS_LABELS, STATUS_ORDER, type Drama, type WatchStatus } from '../types'
+import { cx, fmtRating, overall, today } from '../lib/util'
+import { EpisodeStepper, Poster, RatingHearts, imageSrc } from '../components/ui'
+import { confirmDialog } from '../components/Dialogs'
 import OstSection from '../components/OstSection'
 
 export default function DramaDetail() {
   const { id } = useParams()
   const d = useDrama(id)
   const nav = useNavigate()
+  const categories = useRatingCategories()
 
   if (d === undefined) return null
   if (!d)
@@ -31,17 +33,29 @@ export default function DramaDetail() {
   }
 
   const remove = async () => {
-    if (!confirm(`„${d.title}“ wirklich löschen? Songs werden ebenfalls entfernt.`)) return
+    if (!(await confirmDialog(`„${d.title}“ wirklich löschen? Songs werden ebenfalls entfernt.`, { confirmLabel: 'Löschen', danger: true }))) return
     await deleteDrama(d.id)
     nav('/', { replace: true })
   }
 
+  const rewatch = async () => {
+    if (!(await confirmDialog(`„${d.title}“ noch einmal schauen? Der Fortschritt beginnt wieder bei Folge 0.`, { confirmLabel: '🔁 Nochmal schauen' }))) return
+    await startRewatch(d)
+  }
+
   const score = overall(d)
+  // Kategorien, die es nicht mehr gibt, aber noch Noten haben (z. B. aus einer Sicherung), trotzdem zeigen
+  const shownCats = [
+    ...categories,
+    ...Object.keys(d.ratings)
+      .filter((k) => d.ratings[k] !== undefined && !categories.some((c) => c.key === k))
+      .map((k) => ({ key: k, label: `${k} (entfernt)` })),
+  ]
 
   return (
     <div className="space-y-5">
       <div className="relative -mx-4 overflow-hidden sm:mx-0 sm:rounded-3xl">
-        {d.backdropUrl && <img src={d.backdropUrl} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30 blur-sm" />}
+        {d.backdropUrl && <img src={imageSrc(d.backdropUrl)} alt="" className="absolute inset-0 h-full w-full object-cover opacity-30 blur-sm" />}
         <div className="relative grid gap-5 bg-gradient-to-b from-transparent to-rose-50/90 p-4 sm:grid-cols-[200px_1fr] sm:p-6 dark:to-[#1a1220]/90">
           <Poster drama={d} className="mx-auto w-44 shadow-xl sm:w-full" />
           <div className="space-y-3">
@@ -76,7 +90,7 @@ export default function DramaDetail() {
               </p>
             )}
             <div className="flex flex-wrap gap-2 pt-1">
-              <button className="btn-outline" onClick={() => update({ favorite: !d.favorite })}>
+              <button className="btn-outline" aria-pressed={d.favorite} onClick={() => update({ favorite: !d.favorite })}>
                 {d.favorite ? '⭐ Favorit' : '☆ Als Favorit'}
               </button>
               <Link to={`/drama/${d.id}/edit`} className="btn-outline">
@@ -93,33 +107,47 @@ export default function DramaDetail() {
       <div className="grid gap-5 lg:grid-cols-2">
         <section className="card space-y-4 p-5">
           <h2 className="h-display text-lg font-bold">📺 Fortschritt</h2>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Status">
             {STATUS_ORDER.map((s) => (
               <button
                 key={s}
+                aria-pressed={d.status === s}
                 onClick={() => setStatus(s)}
-                className={
-                  'rounded-full px-3 py-1.5 text-sm font-bold transition ' +
-                  (d.status === s ? 'bg-pink-600 text-white shadow' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-white/10 dark:text-rose-100')
-                }
+                className={cx(
+                  'rounded-full px-3 py-1.5 text-sm font-bold transition',
+                  d.status === s ? 'bg-pink-600 text-white shadow' : 'bg-rose-100 text-rose-700 hover:bg-rose-200 dark:bg-white/10 dark:text-rose-100',
+                )}
               >
                 {STATUS_LABELS[s]}
               </button>
             ))}
           </div>
+          {d.status === 'watching' && <EpisodeStepper drama={d} />}
+          {d.status === 'completed' && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              {!!d.rewatchCount && (
+                <span className="chip">
+                  🔁 {d.rewatchCount}× erneut geschaut
+                </span>
+              )}
+              <button className="btn-outline px-3 py-1 text-sm" onClick={rewatch}>
+                🔁 Nochmal schauen
+              </button>
+            </div>
+          )}
         </section>
 
         <section className="card space-y-3 p-5">
           <h2 className="h-display text-lg font-bold">💗 Meine Bewertung</h2>
-          {RATING_KEYS.map((k) => (
-            <div key={k} className="flex items-center justify-between gap-2">
-              <span className="font-semibold">{DEFAULT_RATING_LABELS[k]}</span>
-              <RatingHearts value={d.ratings[k]} onChange={(v) => update({ ratings: { ...d.ratings, [k]: v } })} />
+          {shownCats.map((c) => (
+            <div key={c.key} className="flex items-center justify-between gap-2">
+              <span className="font-semibold">{c.label}</span>
+              <RatingHearts label={c.label} value={d.ratings[c.key]} onChange={(v) => update({ ratings: { ...d.ratings, [c.key]: v } })} />
             </div>
           ))}
           <div className="flex items-center justify-between gap-2 border-t border-rose-100 pt-3 dark:border-white/10">
             <span className="font-bold">Gesamt</span>
-            <RatingHearts value={d.overallRating} onChange={(v) => update({ overallRating: v })} />
+            <RatingHearts label="Gesamtnote" value={d.overallRating} onChange={(v) => update({ overallRating: v })} />
           </div>
           {d.overallRating === undefined && score !== undefined && (
             <p className="text-xs text-stone-500">Gesamt nicht gesetzt – angezeigt wird der Durchschnitt ({fmtRating(score)}).</p>

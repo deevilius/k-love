@@ -27,6 +27,7 @@ export async function openFeedback(kind: 'feedback' | 'bug', error?: string) {
     `- K-Love: ${d?.version ?? 'Browser'}`,
     d && `- System: ${d.os}`,
     d && `- Profildatei vorhanden: ${d.hasProfile ? 'ja' : 'nein'}`,
+    d?.youtubeIssue && `- Letztes YouTube-Problem: ${d.youtubeIssue}`,
     `- Seite: ${location.hash || '/'}`,
   ].filter(Boolean)
   const log = [...(error ? [error] : []), ...errors].slice(-10)

@@ -4,6 +4,20 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 📺 Auf der Drama-Seite und in „Schaue gerade“ gibt es wieder **+1 Folge**. Nach der letzten Folge springt das Drama automatisch auf „Fertig“.
+- 🔁 **Nochmal schauen** für fertige Dramen: Der Fortschritt beginnt neu, die Rewatches zählen in der Statistik mit.
+- 💗 **Eigene Bewertungskategorien** unter Einstellungen → Bewertungskategorien: umbenennen, sortieren, neue anlegen (z. B. „Second Lead“) oder entfernen.
+- 📊 Statistik: neues Diagramm „Episoden pro Monat“ (aus den „+1“-Klicks). Stunden, die auf einer angenommenen Episodenlänge beruhen, sind als geschätzt gekennzeichnet.
+- 🛟 Mehr Sicherheitskopien: eine pro Tag (die letzten 7) und eine extra, wenn plötzlich viele Dramen fehlen. Alle lassen sich unter Einstellungen → Profil → Sicherheitskopien wiederherstellen.
+- 🔀 Zusammenführen holt gelöschte Dramen, Songs und Playlists nicht mehr zurück und übernimmt geänderte Songs.
+- 🖼️ Poster werden lokal gespeichert und sind danach auch offline da.
+- 🔎 Filter in der Bibliothek bleiben erhalten, wenn du ein Drama öffnest und zurückgehst. Neu: „Filter zurücksetzen“.
+- 💬 Eigene Dialoge und Hinweise statt der Windows-Fenster.
+- ⌨️ Tastenkürzel: Strg+F (Suche), Strg+N (neues Drama), Alt+1…6 (Seiten), Leertaste (Musik). Übersicht unter Einstellungen → Tastenkürzel. Die Herz-Bewertung lässt sich mit den Pfeiltasten bedienen.
+- 🪟 K-Love merkt sich Größe und Position des Fensters.
+- 🐛 Wer kurz nach Mitternacht ein Drama abschließt, bekommt nicht mehr das Datum vom Vortag.
+- 🔒 Zusätzlicher Schutz durch eine Content-Security-Policy.
+
 ## 0.5.0 – 2026-11-27
 
 - ✨ Neue Seite **Entdecken**: aktuelle K-Dramen von Netflix, Viki, Disney+ & Co., passend zu deinen Bewertungen sortiert (Genres, Schauspieler und ähnliche Dramen – je besser bewertet, desto mehr zählen sie) und mit einem Klick auf die Merkliste. Dazu ältere, bekannte Serien, die du noch nicht hast. Unter Einstellungen → Meine Streaming-Anbieter wählst du, welche Dienste du hast.

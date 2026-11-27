@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes, useLocation } from 'react-router-dom'
+import { NavLink, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import { Suspense, lazy, useEffect } from 'react'
 import Library from './pages/Library'
 import DramaDetail from './pages/DramaDetail'
@@ -8,7 +8,8 @@ const SettingsPage = lazy(() => import('./pages/Settings'))
 const Music = lazy(() => import('./pages/Music'))
 const Discover = lazy(() => import('./pages/Discover'))
 import { MiniPlayer } from './components/MiniPlayer'
-import { usePlayer } from './lib/player'
+import { getPlayer, togglePlay, usePlayer } from './lib/player'
+import { DialogHost } from './components/Dialogs'
 import { cx } from './lib/util'
 import { db } from './db/db'
 import { startAutoBackup } from './lib/autoBackup'
@@ -26,8 +27,45 @@ const NAV = [
   { to: '/settings', label: 'Einstellungen', icon: '⚙️', end: false },
 ]
 
+/** Ziel ist ein Eingabefeld oder Bedienelement – dann gehört die Taste dem Element */
+const isTyping = (t: EventTarget | null) =>
+  t instanceof HTMLElement && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT|BUTTON|A)$/.test(t.tagName) || t.getAttribute('role') === 'slider')
+
+/**
+ * Tastenkürzel (auch unter Einstellungen → Tastenkürzel aufgelistet):
+ * Strg+F Suche, Strg+N neues Drama, Leertaste Musik an/aus, Alt+1…6 Seiten
+ */
+function useShortcuts() {
+  const nav = useNavigate()
+  const loc = useLocation()
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.defaultPrevented || document.querySelector('[aria-modal="true"]')) return
+      const ctrl = e.ctrlKey || e.metaKey
+      if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault()
+        const input = document.getElementById('library-search')
+        if (loc.pathname === '/' && input) input.focus()
+        else nav('/', { state: { focusSearch: Date.now() } })
+      } else if (ctrl && !e.shiftKey && !e.altKey && e.key.toLowerCase() === 'n') {
+        e.preventDefault()
+        nav('/new')
+      } else if (e.altKey && !ctrl && /^[1-6]$/.test(e.key)) {
+        e.preventDefault()
+        nav(NAV[Number(e.key) - 1].to)
+      } else if (e.key === ' ' && !ctrl && !e.altKey && !isTyping(e.target) && getPlayer().queue.length) {
+        e.preventDefault()
+        togglePlay()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [nav, loc.pathname])
+}
+
 export default function App() {
   const loc = useLocation()
+  useShortcuts()
   const introPlaying = useIntroPlaying()
   const introOn = useIntroEnabled()
   const playerActive = usePlayer().queue.length > 0
@@ -57,12 +95,12 @@ export default function App() {
           <span className={cx(introOn && introPlaying && 'animate-pulse')}>{introOn ? '🔊' : '🔇'}</span>
         </button>
         <nav className="hidden gap-1 sm:flex">
-          {NAV.map((n) => (
+          {NAV.map((n, i) => (
             <NavLink
               key={n.to}
               to={n.to}
               end={n.end}
-              title={n.label}
+              title={`${n.label} (Alt+${i + 1})`}
               aria-label={n.label}
               className={({ isActive }) =>
                 cx('btn', isActive ? 'bg-pink-600 text-white' : 'text-stone-600 hover:bg-rose-100 dark:text-rose-100 dark:hover:bg-white/10')
@@ -78,6 +116,7 @@ export default function App() {
 
       <BackupReminder />
       <UpdateDialog />
+      <DialogHost />
 
       <main className="flex-1">
         {/* key: beim Seitenwechsel wird ein abgefangener Fehler zurückgesetzt */}

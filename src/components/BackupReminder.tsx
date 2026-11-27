@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { restoreBackup, saveSettings, useDramas, useSettings, validateBackup } from '../db/repo'
 import type { BackupFile } from '../electron'
 import { getAutoBackupError, onAutoBackupError, runAutoBackup } from '../lib/autoBackup'
+import { alertDialog } from './Dialogs'
 
 const REMIND_AFTER_DAYS = 14
 const SNOOZE_DAYS = 3
@@ -27,7 +28,7 @@ export function BackupReminder() {
     try {
       await runAutoBackup(true)
     } catch (e) {
-      alert('Sicherung fehlgeschlagen: ' + (e as Error).message)
+      void alertDialog('Sicherung fehlgeschlagen: ' + (e as Error).message)
     } finally {
       setBusy(false)
     }
@@ -84,7 +85,7 @@ function ProfileOffer() {
       const b = validateBackup(JSON.parse(await window.klove!.backup.read(profile.name)))
       await restoreBackup(b, 'replace')
     } catch (e) {
-      alert('Profil konnte nicht geladen werden: ' + (e as Error).message)
+      void alertDialog('Profil konnte nicht geladen werden: ' + (e as Error).message)
       setBusy(false)
     }
   }

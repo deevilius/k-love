@@ -5,7 +5,7 @@
  */
 import { db } from '../db/db'
 import type { Drama } from '../types'
-import { fmtRating, overall } from './util'
+import { fmtRating, localDay, overall } from './util'
 import { mapTvmazeShow, norm, type PosterCandidate, type TvmazeShow } from './freePosters'
 
 const PAST_DAYS = 28
@@ -50,7 +50,8 @@ export interface Recommendation {
   source?: string
 }
 
-const isoDay = (d: Date) => d.toISOString().slice(0, 10)
+// lokales Datum: toISOString wäre UTC und verschiebt die Tage nachts um eins
+const isoDay = (d: Date) => localDay(d)
 
 function days(): string[] {
   const out: string[] = []
