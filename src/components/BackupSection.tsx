@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { discardUndoSnapshot, restoreBackup, undoRestore, useAllSongs, useDramas, useSettings, useUndoSnapshot, validateBackup, type Backup, type RestoreResult } from '../db/repo'
+import { discardUndoSnapshot, restoreBackup, undoRestore, useAllSongs, useDramas, usePlaylists, useSettings, useUndoSnapshot, validateBackup, type Backup, type RestoreResult } from '../db/repo'
 import { getAutoBackupError, onAutoBackupError, runAutoBackup, writePreRestoreCopy } from '../lib/autoBackup'
 import type { BackupConfig } from '../electron'
 
@@ -155,10 +155,10 @@ function ProfileFolder({ onRestore }: { onRestore: (name: string) => void }) {
 }
 
 function describe(r: RestoreResult, mode: 'replace' | 'merge') {
-  if (mode === 'replace') return `✅ Daten ersetzt: ${r.added} Dramen, ${r.songsAdded} Songs.`
+  if (mode === 'replace') return `✅ Daten ersetzt: ${r.added} Dramen, ${r.songsAdded} Songs, ${r.playlistsAdded} Playlists.`
   const parts = [`${r.added} neu`, `${r.updated} aktualisiert`]
   if (r.skipped) parts.push(`${r.skipped} unverändert (hier neuer oder gleich)`)
-  return `✅ Zusammengeführt: ${parts.join(', ')}${r.songsAdded ? `, ${r.songsAdded} Songs ergänzt` : ''}.`
+  return `✅ Zusammengeführt: ${parts.join(', ')}${r.songsAdded ? `, ${r.songsAdded} Songs ergänzt` : ''}${r.playlistsAdded ? `, ${r.playlistsAdded} Playlists ergänzt` : ''}.`
 }
 
 function RestoreDialog({
@@ -174,6 +174,7 @@ function RestoreDialog({
 }) {
   const dramas = useDramas()
   const songs = useAllSongs()
+  const playlists = usePlaylists()
   const [busy, setBusy] = useState(false)
   const run = async (mode: 'replace' | 'merge') => {
     setBusy(true)
@@ -216,6 +217,11 @@ function RestoreDialog({
               <td className="text-stone-500">Songs</td>
               <td>{backup.songs.length}</td>
               <td>{songs?.length ?? '…'}</td>
+            </tr>
+            <tr>
+              <td className="text-stone-500">Playlists</td>
+              <td>{backup.playlists?.length ?? 0}</td>
+              <td>{playlists?.length ?? '…'}</td>
             </tr>
           </tbody>
         </table>

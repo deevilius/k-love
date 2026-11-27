@@ -3,6 +3,9 @@ import { addSong, deleteSong, moveSong, updateSong, useSongs } from '../db/repo'
 import { detectSource, embedUrl, isCollection, spotifySearchUrl, youtubeSearchUrl } from '../lib/music'
 import type { Drama, Song } from '../types'
 import { cx } from '../lib/util'
+import { AddToPlaylist } from './AddToPlaylist'
+import { canFindOst, ensureOst, splitPlaylistSong, useOstStatus } from '../lib/autoOst'
+import { currentItem, playQueue, toQueueItem, togglePlay, usePlayer, type QueueItem } from '../lib/player'
 
 const SOURCE_ICON = { youtube: '▶️', spotify: '🟢', other: '🔗' }
 
@@ -11,6 +14,22 @@ export default function OstSection({ drama }: { drama: Drama }) {
   const [playing, setPlaying] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [editing, setEditing] = useState<string | null>(null)
+  const [splitting, setSplitting] = useState<string | null>(null)
+  const player = usePlayer()
+  const ostStatus = useOstStatus(drama.id)
+  const nowId = currentItem(player)?.songId
+  // einzelne YouTube-Videos laufen über den Mini-Player (auch beim Seitenwechsel)
+  const queue = (songs ?? []).map((s) => toQueueItem(s, drama.title)).filter((x): x is QueueItem => !!x)
+
+  const split = async (s: Song) => {
+    setSplitting(s.id)
+    try {
+      const n = await splitPlaylistSong(s)
+      if (!n) alert('Die Playlist konnte nicht geladen werden – bist du online? Versuch es gleich nochmal.')
+    } finally {
+      setSplitting(null)
+    }
+  }
 
   const query = `${drama.title} OST`
 
@@ -43,7 +62,17 @@ export default function OstSection({ drama }: { drama: Drama }) {
         />
       )}
 
-      {songs && songs.length === 0 && !adding && (
+      {ostStatus === 'searching' && <p className="text-sm text-stone-500 dark:text-rose-100/60">🔎 Suche die OST auf YouTube …</p>}
+      {songs && songs.length === 0 && !adding && ostStatus !== 'searching' && canFindOst() && (
+        <div className="flex flex-wrap items-center gap-2 text-sm text-stone-500 dark:text-rose-100/60">
+          {ostStatus === 'none' && <span>Keine passende OST auf YouTube gefunden – probier den englischen Titel.</span>}
+          <button className="btn-outline text-xs" onClick={() => void ensureOst(drama, { force: true })}>
+            🎶 OST auf YouTube suchen
+          </button>
+        </div>
+      )}
+
+      {songs && songs.length === 0 && !adding && ostStatus !== 'searching' && (
         <p className="text-sm text-stone-500 dark:text-rose-100/60">
           Noch keine Songs. Kopiere einen YouTube- oder Spotify-Link (Song, Album oder Playlist) und füge ihn hier hinzu.
         </p>
@@ -52,7 +81,9 @@ export default function OstSection({ drama }: { drama: Drama }) {
       <ul className="space-y-2">
         {songs?.map((s, i) => {
           const embed = embedUrl(s.url, true)
-          const open = playing === s.id
+          const qi = queue.findIndex((x) => x.songId === s.id)
+          const isNow = qi >= 0 && nowId === s.id
+          const open = playing === s.id || (isNow && player.playing)
           if (editing === s.id)
             return (
               <li key={s.id}>
@@ -74,7 +105,15 @@ export default function OstSection({ drama }: { drama: Drama }) {
                     'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-lg text-white shadow',
                     open ? 'bg-purple-600' : 'bg-pink-600 hover:bg-pink-700',
                   )}
-                  onClick={() => (embed ? setPlaying(open ? null : s.id) : window.open(s.url, '_blank', 'noopener'))}
+                  onClick={() =>
+                    qi >= 0
+                      ? isNow
+                        ? togglePlay()
+                        : playQueue(queue, qi, { shuffle: false, label: drama.title })
+                      : embed
+                        ? setPlaying(open ? null : s.id)
+                        : window.open(s.url, '_blank', 'noopener')
+                  }
                   title={embed ? (open ? 'Player schließen' : 'Abspielen') : 'Link öffnen'}
                 >
                   {open ? '■' : '▶'}
@@ -86,6 +125,12 @@ export default function OstSection({ drama }: { drama: Drama }) {
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center text-stone-400">
+                  {qi >= 0 && <AddToPlaylist songIds={[s.id]} label="➕" className="px-2" />}
+                  {qi < 0 && s.source === 'youtube' && isCollection(s.url) && canFindOst() && (
+                    <button className="rounded p-1.5 text-xs hover:bg-rose-100 dark:hover:bg-white/10" onClick={() => split(s)} disabled={!!splitting} title="In Einzelsongs aufteilen">
+                      {splitting === s.id ? '…' : '✂️'}
+                    </button>
+                  )}
                   <button className="rounded p-1.5 hover:bg-rose-100 disabled:opacity-30 dark:hover:bg-white/10" disabled={i === 0} onClick={() => moveSong(drama.id, s.id, -1)} title="Nach oben">
                     ↑
                   </button>
@@ -112,7 +157,7 @@ export default function OstSection({ drama }: { drama: Drama }) {
                   </button>
                 </div>
               </div>
-              {open && embed && (
+              {open && embed && qi < 0 && (
                 <div className="px-2 pb-2">
                   <iframe
                     src={embed}

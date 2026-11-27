@@ -62,6 +62,15 @@ export interface Song {
   order: number
 }
 
+/** Eigene Playlist aus einzelnen (YouTube-)Songs */
+export interface Playlist {
+  id: string
+  name: string
+  songIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface Settings {
   lastBackupAt?: string
   /** Prüfsumme der letzten automatischen Sicherung – unveränderte Daten werden nicht erneut gesichert */
@@ -74,6 +83,8 @@ export interface Settings {
   updateSnoozedVersion?: string
   /** Diese Update-Version wurde übersprungen */
   skippedUpdateVersion?: string
+  /** Beim Speichern automatisch eine OST von YouTube hinterlegen (leer = an) */
+  autoOst?: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {}

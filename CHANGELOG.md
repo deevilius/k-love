@@ -4,6 +4,12 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 🖼️ Beim Eintragen und Bearbeiten sucht K-Love das Poster jetzt automatisch, sobald du den Titel tippst – Suchfeld und Poster-URL sind weg. Passt es nicht, blätterst du mit „🔄 Anderes Poster“ durch die Treffer.
+- 🎶 Beim Speichern hinterlegt K-Love automatisch die OST von YouTube – als einzelne Songs mit Titel und Interpret –, wenn das Drama noch keine Songs hat. Abschalten und für alle vorhandenen Dramen nachladen unter Einstellungen → OST & YouTube.
+- 🎵 Neue Seite **Musik**: alle OST-Songs deiner Dramen an einem Ort, durchsuchbar, und eigene Playlists zum Zusammenstellen, Sortieren und Abspielen – auch zufällig.
+- ▶️ Neuer Mini-Player unten in der App: Musik läuft beim Seitenwechsel weiter, mit Weiter/Zurück, Zufall und Wiederholen.
+- 🚫 Werbeblocker für die eingebetteten YouTube-Videos (und Tracker). Abschaltbar unter Einstellungen → OST & YouTube.
+
 ## 0.3.3 – 2026-11-27
 
 - ✨ Wer mehrere Versionen auf einmal überspringt, sieht im Update-Dialog jetzt alle Änderungen seitdem – auch bei mehr als zehn Versionen.

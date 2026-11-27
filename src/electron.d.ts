@@ -14,6 +14,18 @@ export interface BackupFile {
   dramas: number
 }
 
+export interface YoutubeHit {
+  kind: 'playlist' | 'video'
+  id: string
+  title: string
+}
+
+export interface YoutubeItem {
+  id: string
+  title: string
+  channel: string
+}
+
 export interface UpdateNote {
   version: string
   /** reiner Text, Aufzählungen beginnen mit „• “ */
@@ -39,6 +51,16 @@ declare global {
       getVersion(): Promise<string>
       checkForUpdates(): Promise<{ status: 'dev' | 'current' | 'available' | 'error'; version?: string; message?: string }>
       diagnostics(): Promise<{ version: string; os: string; hasProfile: boolean }>
+      adblock: {
+        get(): Promise<boolean>
+        set(enabled: boolean): Promise<boolean>
+      }
+      youtube: {
+        /** Erste passende OST-Playlist zum Drama-Titel, sonst ein OST-Video */
+        findOst(title: string): Promise<YoutubeHit | null>
+        /** Die ersten (max. 25) Videos einer Playlist */
+        playlistItems(listId: string): Promise<YoutubeItem[]>
+      }
       update: {
         getState(): Promise<UpdateState>
         download(): Promise<void>

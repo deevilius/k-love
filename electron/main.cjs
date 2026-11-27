@@ -55,6 +55,9 @@ function start() {
     os: `Windows ${process.getSystemVersion()} (${process.arch})`,
     hasProfile: listFiles(readConfig().dir).some((f) => f.kind === 'profile'),
   }))
+  ipcMain.handle('klove:youtube-find-ost', (_e, title) => findYoutubeOst(title))
+  ipcMain.handle('klove:youtube-playlist-items', (_e, listId) => youtubePlaylistItems(listId))
+  setupAdblock()
   setupBackup()
 
   createWindow()
@@ -63,6 +66,169 @@ function start() {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
+}
+
+// ---------- Werbeblocker (für eingebettete YouTube-Videos) ----------
+// Filterlisten (EasyList, EasyPrivacy …) werden zwischengespeichert und wöchentlich erneuert.
+
+const PREFS_FILE = () => path.join(app.getPath('userData'), 'prefs.json')
+const ENGINE_FILE = () => path.join(app.getPath('userData'), 'adblock-engine.bin')
+const ENGINE_MAX_AGE = 7 * 24 * 60 * 60 * 1000
+
+function readPrefs() {
+  try {
+    return { adblock: true, ...JSON.parse(fs.readFileSync(PREFS_FILE(), 'utf8')) }
+  } catch {
+    return { adblock: true }
+  }
+}
+function writePrefs(p) {
+  fs.mkdirSync(path.dirname(PREFS_FILE()), { recursive: true })
+  fs.writeFileSync(PREFS_FILE(), JSON.stringify(p, null, 2))
+}
+
+let blockerPromise = null
+
+function loadBlocker() {
+  blockerPromise ??= (async () => {
+    const { ElectronBlocker } = require('@ghostery/adblocker-electron')
+    const file = ENGINE_FILE()
+    const fresh = fs.existsSync(file) && Date.now() - fs.statSync(file).mtimeMs < ENGINE_MAX_AGE
+    if (!fresh) {
+      try {
+        const blocker = await ElectronBlocker.fromPrebuiltAdsAndTracking(net.fetch)
+        await fs.promises.writeFile(file, blocker.serialize())
+        return blocker
+      } catch {
+        /* offline → unten die alte Kopie verwenden */
+      }
+    }
+    return ElectronBlocker.fromPrebuiltAdsAndTracking(net.fetch, { path: file, read: fs.promises.readFile, write: fs.promises.writeFile })
+  })().catch((e) => {
+    blockerPromise = null // beim nächsten Einschalten erneut versuchen
+    throw e
+  })
+  return blockerPromise
+}
+
+async function setAdblock(enabled) {
+  try {
+    const blocker = await loadBlocker()
+    const ses = session.defaultSession
+    if (enabled && !blocker.isBlockingEnabled(ses)) blocker.enableBlockingInSession(ses)
+    if (!enabled && blocker.isBlockingEnabled(ses)) blocker.disableBlockingInSession(ses)
+    return true
+  } catch (e) {
+    console.warn('Werbeblocker nicht verfügbar:', e?.message ?? e)
+    return false
+  }
+}
+
+function setupAdblock() {
+  ipcMain.handle('klove:adblock-get', () => readPrefs().adblock)
+  ipcMain.handle('klove:adblock-set', async (_e, enabled) => {
+    writePrefs({ ...readPrefs(), adblock: !!enabled })
+    await setAdblock(!!enabled)
+    return !!enabled
+  })
+  if (readPrefs().adblock) void setAdblock(true)
+}
+
+// ---------- OST-Suche auf YouTube (ohne API-Schlüssel: Suchseite auslesen) ----------
+
+const OST_RE = /\bost\b|soundtrack|사운드트랙/i
+
+// Eigene Sitzung nur für diese Abfragen: Ohne Antwort auf die Cookie-Abfrage zeigt YouTube in der EU
+// statt Playlists die Seite „Before you continue“. SOCS=CAI = nur notwendige Cookies.
+let ytSession = null
+async function youtubeSession() {
+  if (!ytSession) {
+    const ses = session.fromPartition('klove-youtube-search')
+    await ses.cookies.set({ url: 'https://www.youtube.com', domain: '.youtube.com', name: 'SOCS', value: 'CAI', secure: true, expirationDate: Date.now() / 1000 + 365 * 24 * 3600 })
+    ytSession = ses
+  }
+  return ytSession
+}
+
+/** Liest die Seitendaten (ytInitialData) einer YouTube-Seite */
+async function youtubeData(url) {
+  const ses = await youtubeSession()
+  const res = await ses.fetch(url, { headers: { 'Accept-Language': 'en-US,en;q=0.9' }, credentials: 'include' })
+  if (!res.ok) return null
+  const m = (await res.text()).match(/ytInitialData\s*=\s*(\{.+?\});\s*<\/script>/s)
+  return m ? JSON.parse(m[1]) : null
+}
+
+const youtubeResults = (query, filter) =>
+  youtubeData(`https://www.youtube.com/results?search_query=${encodeURIComponent(query)}${filter ? `&sp=${filter}` : ''}`)
+
+const ytText = (t) => t?.simpleText ?? t?.runs?.map((r) => r.text).join('') ?? t?.content ?? ''
+
+/** Alle Treffer in Dokument-Reihenfolge sammeln (iterativ, die Struktur ist sehr tief verschachtelt) */
+function collect(root, pick) {
+  const out = []
+  const stack = [root]
+  while (stack.length) {
+    const n = stack.pop()
+    if (!n || typeof n !== 'object') continue
+    const hit = pick(n)
+    if (hit) out.push(hit)
+    const children = Array.isArray(n) ? n : Object.values(n)
+    for (let i = children.length - 1; i >= 0; i--) stack.push(children[i])
+  }
+  return out
+}
+
+const pickPlaylist = (n) => {
+  if (n.playlistRenderer?.playlistId) return { kind: 'playlist', id: n.playlistRenderer.playlistId, title: ytText(n.playlistRenderer.title) }
+  const l = n.lockupViewModel
+  if (l?.contentId && l.contentType === 'LOCKUP_CONTENT_TYPE_PLAYLIST')
+    return { kind: 'playlist', id: l.contentId, title: ytText(l.metadata?.lockupMetadataViewModel?.title) }
+  return null
+}
+const pickVideo = (n) => (n.videoRenderer?.videoId ? { kind: 'video', id: n.videoRenderer.videoId, title: ytText(n.videoRenderer.title) } : null)
+
+const normTitle = (s) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
+
+/**
+ * Erst eine OST-Playlist, sonst ein OST-Video zum Drama-Titel.
+ * Ein Treffer muss „OST“/„Soundtrack“ und den Drama-Titel enthalten – lieber nichts als etwas Falsches.
+ */
+async function findYoutubeOst(title) {
+  if (typeof title !== 'string' || !title.trim() || title.length > 200) return null
+  const t = normTitle(title)
+  const fits = (hit) => OST_RE.test(hit.title) && normTitle(hit.title).includes(t)
+  const query = `${title.trim()} OST`
+  try {
+    const pl = collect(await youtubeResults(query, 'EgIQAw%3D%3D'), pickPlaylist).find(fits)
+    if (pl) return pl
+    return collect(await youtubeResults(query), pickVideo).find(fits) ?? null
+  } catch {
+    return null
+  }
+}
+
+const pickPlaylistVideo = (n) => {
+  const r = n.playlistVideoRenderer
+  if (r?.videoId) return { id: r.videoId, title: ytText(r.title), channel: ytText(r.shortBylineText) }
+  const l = n.lockupViewModel
+  if (l?.contentId && l.contentType === 'LOCKUP_CONTENT_TYPE_VIDEO') {
+    const md = l.metadata?.lockupMetadataViewModel
+    return { id: l.contentId, title: ytText(md?.title), channel: ytText(md?.metadata?.contentMetadataViewModel?.metadataRows?.[0]?.metadataParts?.[0]?.text) }
+  }
+  return null
+}
+
+/** Die ersten Videos einer YouTube-Playlist ({ id, title, channel }[]), bei Fehlern [] */
+async function youtubePlaylistItems(listId, max = 25) {
+  if (typeof listId !== 'string' || !/^[\w-]{10,64}$/.test(listId)) return []
+  try {
+    const items = collect(await youtubeData(`https://www.youtube.com/playlist?list=${listId}`), pickPlaylistVideo)
+    const seen = new Set()
+    return items.filter((v) => v.title && !seen.has(v.id) && seen.add(v.id)).slice(0, max)
+  } catch {
+    return []
+  }
 }
 
 function createWindow() {
