@@ -15,6 +15,7 @@ import {
   type Tombstone,
 } from '../types'
 import { today } from '../lib/util'
+import { normalizeProgress, type HangulProgress } from '../lib/hangul'
 
 export const newId = () => crypto.randomUUID()
 const now = () => new Date().toISOString()
@@ -238,6 +239,16 @@ export async function getSettings(): Promise<Settings> {
 export async function saveSettings(changes: Partial<Settings>) {
   const cur = await getSettings()
   await db.kv.put({ key: 'settings', value: { ...cur, ...changes } })
+}
+
+// ---------- Hangul-Trainer ----------
+export const useHangulProgress = () => normalizeProgress(useSettings().hangul)
+/** Ändert den Lernstand in einem Schritt (schnelle Antworten überschreiben sich nicht gegenseitig) */
+export async function updateHangul(fn: (p: HangulProgress) => HangulProgress) {
+  await db.transaction('rw', db.kv, async () => {
+    const cur = await getSettings()
+    await db.kv.put({ key: 'settings', value: { ...cur, hangul: fn(normalizeProgress(cur.hangul)) } })
+  })
 }
 
 // ---------- Bewertungskategorien ----------

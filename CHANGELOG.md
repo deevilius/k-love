@@ -4,6 +4,7 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+- 한 Neue Seite **Koreanisch**: ein Hangul-Trainer in zehn Stufen – von den ersten Vokalen über Silbenblöcke bis zu echten Drama-Wörtern (사랑해, 대박 …) und koreanischen Titeln deiner eigenen Dramen. Kurze Runden mit zehn Fragen, schwache Zeichen kommen öfter dran, dazu eine Hangul-Tafel und „Tage in Folge“. Mit installierter koreanischer Windows-Stimme hörst du auch die Aussprache.
 - 📺 Auf der Drama-Seite und in „Schaue gerade“ gibt es wieder **+1 Folge**. Nach der letzten Folge springt das Drama automatisch auf „Fertig“.
 - 🔁 **Nochmal schauen** für fertige Dramen: Der Fortschritt beginnt neu, die Rewatches zählen in der Statistik mit.
 - 💗 **Eigene Bewertungskategorien** unter Einstellungen → Bewertungskategorien: umbenennen, sortieren, neue anlegen (z. B. „Second Lead“) oder entfernen.
@@ -13,7 +14,7 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 - 🖼️ Poster werden lokal gespeichert und sind danach auch offline da.
 - 🔎 Filter in der Bibliothek bleiben erhalten, wenn du ein Drama öffnest und zurückgehst. Neu: „Filter zurücksetzen“.
 - 💬 Eigene Dialoge und Hinweise statt der Windows-Fenster.
-- ⌨️ Tastenkürzel: Strg+F (Suche), Strg+N (neues Drama), Alt+1…6 (Seiten), Leertaste (Musik). Übersicht unter Einstellungen → Tastenkürzel. Die Herz-Bewertung lässt sich mit den Pfeiltasten bedienen.
+- ⌨️ Tastenkürzel: Strg+F (Suche), Strg+N (neues Drama), Alt+1…7 (Seiten), Leertaste (Musik). Übersicht unter Einstellungen → Tastenkürzel. Die Herz-Bewertung lässt sich mit den Pfeiltasten bedienen.
 - 🪟 K-Love merkt sich Größe und Position des Fensters.
 - 🐛 Wer kurz nach Mitternacht ein Drama abschließt, bekommt nicht mehr das Datum vom Vortag.
 - 🔒 Zusätzlicher Schutz durch eine Content-Security-Policy.

@@ -123,7 +123,7 @@ function RatingSection() {
 const SHORTCUTS: [string, string][] = [
   ['Strg + F', 'In der Bibliothek suchen'],
   ['Strg + N', 'Neues Drama hinzufügen'],
-  ['Alt + 1 … 6', 'Bibliothek, Entdecken, Hinzufügen, Musik, Statistik, Einstellungen'],
+  ['Alt + 1 … 7', 'Bibliothek, Entdecken, Hinzufügen, Musik, Koreanisch, Statistik, Einstellungen'],
   ['Leertaste', 'Musik im Mini-Player anhalten / weiterspielen'],
   ['← / →', 'Herz-Bewertung ändern (wenn ausgewählt), Entf = keine Note'],
   ['Esc', 'Dialog schließen, Suche leeren'],
