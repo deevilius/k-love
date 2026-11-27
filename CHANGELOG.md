@@ -4,6 +4,8 @@ Neue Einträge kommen unter „Unveröffentlicht“. Beim Release wird dieser Ab
 
 ## Unveröffentlicht
 
+## 0.3.1 – 2026-11-27
+
 - 📺 Aufgeräumter Fortschritt: Auf der Drama-Seite wählst du nur noch den Status – Episodenzähler und Datumsfelder sind weg.
 
 ## 0.3.0 – 2026-11-26
