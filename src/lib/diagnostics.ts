@@ -33,7 +33,7 @@ export async function openFeedback(kind: 'feedback' | 'bug', error?: string) {
   const log = [...(error ? [error] : []), ...errors].slice(-10)
 
   const body = [
-    kind === 'bug' ? '**Was hast du gerade gemacht, als der Fehler kam?**' : '**Was möchtest du uns sagen?**',
+    kind === 'bug' ? '**Was hast du gerade gemacht, als der Fehler kam?**' : '**Was möchtest du mir sagen?**',
     '',
     '',
     '',
